@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/word_model.dart';
 import '../services/word_service.dart';
+import '../services/favorites_service.dart';
 
 enum WordSortOption { defaultOrder, alphabetical, alphabeticalDesc, difficultyAsc, difficultyDesc }
 
 class WordListProvider extends ChangeNotifier {
   final WordService _wordService = WordService();
+  final FavoritesService _favoritesService = FavoritesService();
 
   List<WordModel> _allWords = [];
   List<WordModel> _filteredWords = [];
@@ -18,6 +20,8 @@ class WordListProvider extends ChangeNotifier {
   String? _errorMessage;
   WordSortOption _sortOption = WordSortOption.defaultOrder;
   Timer? _debounceTimer;
+  Set<int> _favoriteIds = {};
+  bool _showFavoritesOnly = false;
 
   List<WordModel> get words => _filteredWords;
   List<WordModel> get allWords => _allWords;
@@ -27,6 +31,10 @@ class WordListProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   WordSortOption get sortOption => _sortOption;
+  Set<int> get favoriteIds => _favoriteIds;
+  bool get showFavoritesOnly => _showFavoritesOnly;
+
+  bool isFavorite(int wordId) => _favoriteIds.contains(wordId);
 
   Future<void> loadWords() async {
     _isLoading = true;
@@ -36,6 +44,7 @@ class WordListProvider extends ChangeNotifier {
     try {
       _allWords = await _wordService.fetchAllWords();
       _categories = await _wordService.fetchCategories();
+      _favoriteIds = await _favoritesService.getFavorites();
       _applyFilters();
       _isLoading = false;
       notifyListeners();
@@ -67,6 +76,23 @@ class WordListProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> toggleFavorite(int wordId) async {
+    await _favoritesService.toggleFavorite(wordId);
+    if (_favoriteIds.contains(wordId)) {
+      _favoriteIds.remove(wordId);
+    } else {
+      _favoriteIds.add(wordId);
+    }
+    _applyFilters();
+    notifyListeners();
+  }
+
+  void setShowFavoritesOnly(bool value) {
+    _showFavoritesOnly = value;
+    _applyFilters();
+    notifyListeners();
+  }
+
   void _applyFilters() {
     _filteredWords = _allWords.where((word) {
       final matchesCategory = _selectedCategory == null ||
@@ -74,7 +100,9 @@ class WordListProvider extends ChangeNotifier {
       final matchesSearch = _searchQuery.isEmpty ||
           word.englishWord.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           word.russianTranslation.toLowerCase().contains(_searchQuery.toLowerCase());
-      return matchesCategory && matchesSearch;
+      final matchesFavorite = !_showFavoritesOnly ||
+          _favoriteIds.contains(word.id);
+      return matchesCategory && matchesSearch && matchesFavorite;
     }).toList();
 
     switch (_sortOption) {

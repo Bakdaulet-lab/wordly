@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'constants/supabase_constants.dart';
 import 'providers/auth_provider.dart';
@@ -19,6 +20,9 @@ void main() async {
     anonKey: SupabaseConstants.supabaseAnonKey,
   );
 
+  final prefs = await SharedPreferences.getInstance();
+  final onboardingComplete = prefs.getBool('onboarding_complete') ?? false;
+
   runApp(
     MultiProvider(
       providers: [
@@ -30,7 +34,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => AchievementProvider()),
         ChangeNotifierProvider(create: (_) => StatsProvider()),
       ],
-      child: const MyApp(),
+      child: MyApp(onboardingComplete: onboardingComplete),
     ),
   );
 }

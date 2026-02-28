@@ -34,6 +34,7 @@ class _WordListScreenState extends State<WordListScreen> {
               children: [
                 Text('Word Library', style: AppTextStyles.heading1),
                 const Spacer(),
+                _buildFavoritesToggle(),
                 _buildSortButton(),
               ],
             ),
@@ -46,6 +47,22 @@ class _WordListScreenState extends State<WordListScreen> {
           Expanded(child: _buildWordList()),
         ],
       ),
+    );
+  }
+
+  Widget _buildFavoritesToggle() {
+    return Consumer<WordListProvider>(
+      builder: (context, provider, child) {
+        final isActive = provider.showFavoritesOnly;
+        return IconButton(
+          icon: Icon(
+            isActive ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+            color: isActive ? AppColors.errorRed : AppColors.textHint,
+          ),
+          tooltip: isActive ? 'Show all words' : 'Show favorites only',
+          onPressed: () => provider.setShowFavoritesOnly(!isActive),
+        );
+      },
     );
   }
 
@@ -295,13 +312,16 @@ class _WordListScreenState extends State<WordListScreen> {
   }
 
   Widget _buildWordCard(BuildContext context, WordModel word) {
+    final provider = context.read<WordListProvider>();
+    final isFav = provider.isFavorite(word.id);
+
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       color: AppColors.cardBackground,
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
-        onTap: () => context.go('/words/${word.id}'),
+        onTap: () => context.push('/words/${word.id}'),
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -326,6 +346,15 @@ class _WordListScreenState extends State<WordListScreen> {
                 ),
               ),
               _buildDifficultyBadge(word.difficultyLevel),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () => provider.toggleFavorite(word.id),
+                child: Icon(
+                  isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                  color: isFav ? AppColors.errorRed : AppColors.textHint,
+                  size: 22,
+                ),
+              ),
             ],
           ),
         ),

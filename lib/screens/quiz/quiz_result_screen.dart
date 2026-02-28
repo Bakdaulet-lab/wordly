@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
 import '../../providers/quiz_provider.dart';
@@ -234,6 +235,26 @@ class QuizResultScreen extends StatelessWidget {
                         'Go Home',
                         style: AppTextStyles.button.copyWith(
                           color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: TextButton.icon(
+                      onPressed: () {
+                        final text = 'I scored $score/$total on Wordly '
+                            'and earned $xpEarned XP! '
+                            '${isPerfect ? "Perfect score!" : ""}';
+                        Share.share(text);
+                      },
+                      icon: const Icon(Icons.share_rounded, size: 20),
+                      label: Text(
+                        'Share Results',
+                        style: AppTextStyles.bodyMedium.copyWith(
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),

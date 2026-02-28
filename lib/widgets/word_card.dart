@@ -6,8 +6,16 @@ import '../../models/word_model.dart';
 class WordCard extends StatelessWidget {
   final WordModel word;
   final VoidCallback? onTap;
+  final bool isFavorite;
+  final VoidCallback? onFavoriteToggle;
 
-  const WordCard({super.key, required this.word, this.onTap});
+  const WordCard({
+    super.key,
+    required this.word,
+    this.onTap,
+    this.isFavorite = false,
+    this.onFavoriteToggle,
+  });
 
   Color _difficultyColor(int level) {
     switch (level) {
@@ -80,6 +88,17 @@ class WordCard extends StatelessWidget {
                   ),
                 ),
               ),
+              if (onFavoriteToggle != null) ...[
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: onFavoriteToggle,
+                  child: Icon(
+                    isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                    color: isFavorite ? AppColors.errorRed : AppColors.textHint,
+                    size: 22,
+                  ),
+                ),
+              ],
             ],
           ),
         ),

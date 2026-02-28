@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -5,6 +7,7 @@ import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/profile_provider.dart';
+import '../../providers/word_list_provider.dart';
 import '../../providers/stats_provider.dart';
 import '../../providers/progress_provider.dart';
 
@@ -36,6 +39,12 @@ class DashboardScreen extends StatelessWidget {
               Text('Today\'s Progress', style: AppTextStyles.heading3),
               const SizedBox(height: 12),
               _buildStatCards(),
+              const SizedBox(height: 16),
+              _buildDailyGoalCard(context),
+              const SizedBox(height: 24),
+              _buildWordOfTheDay(context),
+              const SizedBox(height: 24),
+              _buildWeeklyChart(),
               const SizedBox(height: 24),
               _buildReviewCard(context),
             ],
@@ -357,6 +366,332 @@ class DashboardScreen extends StatelessWidget {
                   ),
               ],
             ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDailyGoalCard(BuildContext context) {
+    return Consumer<StatsProvider>(
+      builder: (context, statsProvider, child) {
+        final goal = statsProvider.dailyXpGoal;
+        final earned = statsProvider.todayXpEarned;
+        final progress = statsProvider.dailyGoalProgress;
+        final reached = statsProvider.dailyGoalReached;
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.cardBackground,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: reached
+                  ? AppColors.successGreen.withValues(alpha: 0.4)
+                  : AppColors.textHint.withValues(alpha: 0.15),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    reached
+                        ? Icons.check_circle_rounded
+                        : Icons.flag_rounded,
+                    color: reached
+                        ? AppColors.successGreen
+                        : AppColors.primary,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Daily Goal',
+                    style: AppTextStyles.bodyLarge.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () => _showGoalPicker(context, statsProvider),
+                    child: Text(
+                      '$earned / $goal XP',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  backgroundColor: AppColors.textHint.withValues(alpha: 0.15),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    reached ? AppColors.successGreen : AppColors.primary,
+                  ),
+                  minHeight: 8,
+                ),
+              ),
+              if (reached)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    'Goal reached! Great work today.',
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.successGreen,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showGoalPicker(BuildContext context, StatsProvider statsProvider) {
+    final goals = [30, 50, 75, 100, 150, 200];
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.cardBackground,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Set Daily XP Goal', style: AppTextStyles.heading3),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: goals.map((g) {
+                    final isSelected = g == statsProvider.dailyXpGoal;
+                    return ChoiceChip(
+                      label: Text('$g XP'),
+                      selected: isSelected,
+                      onSelected: (_) {
+                        statsProvider.setDailyGoal(g);
+                        Navigator.pop(ctx);
+                      },
+                      selectedColor: AppColors.primary,
+                      backgroundColor: AppColors.surface,
+                      labelStyle: AppTextStyles.bodyMedium.copyWith(
+                        color: isSelected ? Colors.white : AppColors.textPrimary,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildWordOfTheDay(BuildContext context) {
+    return Consumer<WordListProvider>(
+      builder: (context, wordProvider, child) {
+        final allWords = wordProvider.allWords;
+        if (allWords.isEmpty) return const SizedBox.shrink();
+
+        final now = DateTime.now();
+        final daySeed = now.year * 10000 + now.month * 100 + now.day;
+        final index = Random(daySeed).nextInt(allWords.length);
+        final word = allWords[index];
+
+        return InkWell(
+          onTap: () => context.push('/words/${word.id}'),
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.xpGold.withValues(alpha: 0.15),
+                  AppColors.xpGold.withValues(alpha: 0.05),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.xpGold.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.xpGold.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.auto_awesome_rounded,
+                    color: AppColors.xpGold,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Word of the Day',
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.xpGold,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        word.englishWord,
+                        style: AppTextStyles.heading3.copyWith(
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      Text(
+                        word.russianTranslation,
+                        style: AppTextStyles.bodyMedium,
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: AppColors.textHint,
+                  size: 16,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildWeeklyChart() {
+    return Consumer<StatsProvider>(
+      builder: (context, statsProvider, child) {
+        final recentStats = statsProvider.recentStats;
+        if (recentStats.isEmpty) return const SizedBox.shrink();
+
+        // Get last 7 days of XP data
+        final now = DateTime.now();
+        final dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        final weekData = <int>[];
+
+        for (int i = 6; i >= 0; i--) {
+          final day = now.subtract(Duration(days: i));
+          final stat = recentStats.where((s) =>
+            s.date.year == day.year &&
+            s.date.month == day.month &&
+            s.date.day == day.day,
+          ).toList();
+          weekData.add(stat.isNotEmpty ? stat.first.xpEarned : 0);
+        }
+
+        final maxXp = weekData.reduce((a, b) => a > b ? a : b);
+        final barMaxHeight = 80.0;
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AppColors.cardBackground,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Weekly XP', style: AppTextStyles.heading3),
+              const SizedBox(height: 16),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: List.generate(7, (i) {
+                  final xp = weekData[i];
+                  final height =
+                      maxXp > 0 ? (xp / maxXp) * barMaxHeight : 0.0;
+                  final dayIndex =
+                      (now.subtract(Duration(days: 6 - i)).weekday - 1) % 7;
+                  final isToday = i == 6;
+
+                  return Expanded(
+                    child: Column(
+                      children: [
+                        Text(
+                          '$xp',
+                          style: AppTextStyles.caption.copyWith(
+                            fontSize: 10,
+                            color: isToday
+                                ? AppColors.primary
+                                : AppColors.textHint,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          height: height < 4 && xp > 0 ? 4 : height,
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          decoration: BoxDecoration(
+                            color: isToday
+                                ? AppColors.primary
+                                : AppColors.primary.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          dayLabels[dayIndex],
+                          style: AppTextStyles.caption.copyWith(
+                            fontSize: 10,
+                            color: isToday
+                                ? AppColors.primary
+                                : AppColors.textHint,
+                            fontWeight: isToday
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ),
+            ],
           ),
         );
       },

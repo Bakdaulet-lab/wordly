@@ -12,6 +12,7 @@ import '../screens/quiz/quiz_result_screen.dart';
 import '../screens/progress/review_screen.dart';
 import '../screens/achievements/achievements_screen.dart';
 import '../screens/profile/profile_screen.dart';
+import '../screens/onboarding/onboarding_screen.dart';
 
 Page<void> _fadeTransition(GoRouterState state, Widget child) {
   return CustomTransitionPage(
@@ -42,21 +43,30 @@ Page<void> _slideUpTransition(GoRouterState state, Widget child) {
   );
 }
 
-GoRouter createRouter(BuildContext context) {
+GoRouter createRouter(BuildContext context, {required bool onboardingComplete}) {
   final authProvider = context.read<AuthProvider>();
 
   return GoRouter(
-    initialLocation: '/login',
+    initialLocation: onboardingComplete ? '/login' : '/onboarding',
     redirect: (context, state) {
       final isAuthenticated = authProvider.isAuthenticated;
       final isOnAuth = state.matchedLocation == '/login' ||
           state.matchedLocation == '/signup';
+      final isOnboarding = state.matchedLocation == '/onboarding';
+
+      // Let onboarding pass through
+      if (isOnboarding) return null;
 
       if (!isAuthenticated && !isOnAuth) return '/login';
       if (isAuthenticated && isOnAuth) return '/home';
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/onboarding',
+        pageBuilder: (context, state) =>
+            _fadeTransition(state, const OnboardingScreen()),
+      ),
       GoRoute(
         path: '/login',
         pageBuilder: (context, state) =>

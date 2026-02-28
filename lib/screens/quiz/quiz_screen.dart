@@ -15,6 +15,7 @@ import '../../models/achievement_model.dart';
 import '../../services/xp_service.dart';
 import '../../services/stats_service.dart';
 import '../../services/progress_service.dart';
+import '../../services/tts_service.dart';
 
 class QuizScreen extends StatefulWidget {
   const QuizScreen({super.key});
@@ -356,6 +357,14 @@ class _QuizScreenState extends State<QuizScreen> {
                             color: AppColors.primary,
                           ),
                           textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        IconButton(
+                          onPressed: () => TtsService().speak(quiz.currentWord!.englishWord),
+                          icon: const Icon(Icons.volume_up_rounded),
+                          color: AppColors.primary.withValues(alpha: 0.7),
+                          iconSize: 24,
+                          tooltip: 'Listen',
                         ),
                       ],
                     ),

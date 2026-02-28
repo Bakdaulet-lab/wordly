@@ -3,7 +3,9 @@ import 'constants/app_colors.dart';
 import 'router/app_router.dart';
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final bool onboardingComplete;
+
+  const MyApp({super.key, required this.onboardingComplete});
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +56,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      routerConfig: createRouter(context),
+      routerConfig: createRouter(context, onboardingComplete: onboardingComplete),
     );
   }
 }

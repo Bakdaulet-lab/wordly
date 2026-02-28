@@ -5,6 +5,7 @@ import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
 import '../../models/word_model.dart';
 import '../../providers/word_list_provider.dart';
+import '../../services/tts_service.dart';
 
 class WordDetailScreen extends StatelessWidget {
   final int wordId;
@@ -99,7 +100,14 @@ class WordDetailScreen extends StatelessWidget {
                         ),
                         textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
+                      IconButton(
+                        onPressed: () => TtsService().speak(word.englishWord),
+                        icon: const Icon(Icons.volume_up_rounded),
+                        color: Colors.white.withValues(alpha: 0.9),
+                        iconSize: 28,
+                        tooltip: 'Listen',
+                      ),
                       Text(
                         word.russianTranslation,
                         style: AppTextStyles.heading3.copyWith(
