@@ -301,3 +301,55 @@ INSERT INTO public.achievements (name, description, icon_name, condition_type, c
 ('XP Hunter', 'Earn 500 total XP', 'lightning', 'total_xp', 500),
 ('XP Master', 'Earn 2000 total XP', 'lightning', 'total_xp', 2000),
 ('Perfect Score', 'Get all answers correct in a quiz', 'target', 'perfect_quiz', 1);
+
+
+-- ============================================================
+-- 9. FRIENDSHIPS TABLE (Leaderboard + Friends)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.friendships (
+  id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  friend_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_friendship UNIQUE (user_id, friend_id),
+  CONSTRAINT no_self_friend CHECK (user_id <> friend_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_friendships_user
+  ON public.friendships (user_id, status);
+CREATE INDEX IF NOT EXISTS idx_friendships_friend
+  ON public.friendships (friend_id, status);
+
+ALTER TABLE public.friendships ENABLE ROW LEVEL SECURITY;
+
+-- Users can see their own friendships (sent or received)
+CREATE POLICY "Users can view own friendships"
+  ON public.friendships FOR SELECT
+  USING (auth.uid() = user_id OR auth.uid() = friend_id);
+
+-- Users can insert friendship requests where they are the sender
+CREATE POLICY "Users can send friend requests"
+  ON public.friendships FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+-- Users can update friendships they are involved in
+CREATE POLICY "Users can update own friendships"
+  ON public.friendships FOR UPDATE
+  USING (auth.uid() = user_id OR auth.uid() = friend_id);
+
+-- Users can delete their own friendships
+CREATE POLICY "Users can delete own friendships"
+  ON public.friendships FOR DELETE
+  USING (auth.uid() = user_id OR auth.uid() = friend_id);
+
+-- ============================================================
+-- 10. LEADERBOARD INDEX (for fast global ranking)
+-- ============================================================
+CREATE INDEX IF NOT EXISTS idx_profiles_xp_rank
+  ON public.profiles (total_xp DESC, id);
+
+-- Allow all authenticated users to view profiles for leaderboard
+CREATE POLICY "Authenticated users can view profiles for leaderboard"
+  ON public.profiles FOR SELECT
+  USING (auth.role() = 'authenticated');

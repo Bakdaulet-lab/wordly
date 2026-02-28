@@ -18,36 +18,44 @@ class XpProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Level $level',
-              style: AppTextStyles.bodySmall.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            if (xpToNextLevel != null)
+    final pct = (progress.clamp(0.0, 1.0) * 100).round();
+    return Semantics(
+      label: 'Experience progress: Level $level, $currentXp'
+          '${xpToNextLevel != null ? ' of $xpToNextLevel' : ''} XP, $pct percent',
+      value: '$pct%',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
               Text(
-                '$currentXp / $xpToNextLevel XP',
-                style: AppTextStyles.caption,
+                'Level $level',
+                style: AppTextStyles.bodySmall.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: LinearProgressIndicator(
-            value: progress.clamp(0.0, 1.0),
-            minHeight: 10,
-            backgroundColor: AppColors.xpGold.withValues(alpha: 0.2),
-            valueColor: const AlwaysStoppedAnimation<Color>(AppColors.xpGold),
+              if (xpToNextLevel != null)
+                Text(
+                  '$currentXp / $xpToNextLevel XP',
+                  style: AppTextStyles.caption,
+                ),
+            ],
           ),
-        ),
-      ],
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: progress.clamp(0.0, 1.0),
+              minHeight: 10,
+              backgroundColor: AppColors.xpGold.withValues(alpha: 0.2),
+              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.xpGold),
+              semanticsLabel: 'XP progress',
+              semanticsValue: '$pct%',
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

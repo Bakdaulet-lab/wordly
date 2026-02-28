@@ -1,12 +1,13 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Manages per-device word favourites in shared preferences.
 class FavoritesService {
   static const String _key = 'favorite_word_ids';
 
   Future<Set<int>> getFavorites() async {
     final prefs = await SharedPreferences.getInstance();
     final ids = prefs.getStringList(_key) ?? [];
-    return ids.map((e) => int.parse(e)).toSet();
+    return ids.map((e) => int.tryParse(e)).whereType<int>().toSet();
   }
 
   Future<void> toggleFavorite(int wordId) async {

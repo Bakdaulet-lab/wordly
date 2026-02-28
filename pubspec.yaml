@@ -10,6 +10,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   cupertino_icons: ^1.0.8
   provider: ^6.1.1
   supabase_flutter: ^2.3.0
@@ -22,6 +24,15 @@ dependencies:
   fl_chart: ^0.70.2
   share_plus: ^10.1.4
   get_it: ^8.0.3
+  # Offline-first + sync
+  sqflite: ^2.4.1
+  path: ^1.9.1
+  connectivity_plus: ^6.1.3
+  # Push notifications + reminders
+  flutter_local_notifications: ^18.0.1
+  timezone: ^0.10.0
+  # Theme persistence
+  flutter_colorpicker: ^1.1.0
 
 dev_dependencies:
   flutter_test:

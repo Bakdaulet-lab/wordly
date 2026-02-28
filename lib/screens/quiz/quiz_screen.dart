@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
+import '../../constants/app_theme.dart';
 import '../../constants/app_constants.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/quiz_provider.dart';
@@ -42,7 +44,10 @@ class _QuizScreenState extends State<QuizScreen> {
       // Words not loaded yet, attempt to load them first
       return;
     }
-    context.read<QuizProvider>().startQuiz(allWords);
+    // Defer to avoid notifyListeners during build phase
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<QuizProvider>().startQuiz(allWords);
+    });
   }
 
   Future<void> _handleAnswer(int optionIndex) async {
@@ -50,6 +55,8 @@ class _QuizScreenState extends State<QuizScreen> {
 
     final userId = context.read<AuthProvider>().user?.id;
     if (userId == null) return;
+
+    HapticFeedback.lightImpact();
 
     final quizProvider = context.read<QuizProvider>();
     await quizProvider.selectAnswer(optionIndex, userId);
@@ -89,7 +96,12 @@ class _QuizScreenState extends State<QuizScreen> {
     if (wordId != null) {
       unawaited(sl<QuizRepository>()
           .submitAnswer(userId: userId, wordId: wordId, isCorrect: false)
-          .then((_) {}));
+          .then((result) {
+        result.when(
+          success: (_) {},
+          failure: (error) => debugPrint('timeout submitAnswer failed: ${error.userMessage}'),
+        );
+      }),);
     }
 
     _advanceOrFinish(quizProvider, userId);
@@ -99,51 +111,51 @@ class _QuizScreenState extends State<QuizScreen> {
     quizProvider.nextQuestion();
 
     if (quizProvider.isQuizComplete) {
-      quizProvider.finishQuiz(userId).then((_) {
+      quizProvider.finishQuiz(userId).then((_) async {
         if (mounted) {
-          _checkAchievements(userId, quizProvider);
-          context.go('/quiz-result');
+          await _checkAchievements(userId, quizProvider);
+          if (mounted) context.go('/quiz-result');
         }
       });
     }
   }
 
-  void _checkAchievements(String userId, QuizProvider quizProvider) {
+  Future<void> _checkAchievements(String userId, QuizProvider quizProvider) async {
     final achievementProvider = context.read<AchievementProvider>();
     final profileProvider = context.read<ProfileProvider>();
 
-    // Refresh profile to get latest XP
-    profileProvider.refreshProfile(userId);
+    // Await profile refresh to get latest XP (avoids stale data)
+    await profileProvider.refreshProfile(userId);
 
     // Check XP-based achievements
-    achievementProvider
+    final a1 = await achievementProvider
         .checkAndUnlock(
           userId: userId,
           conditionType: 'total_xp',
-          currentValue: profileProvider.totalXp + quizProvider.totalXpEarned,
-        )
-        .then((a) => _showAchievementSnackBar(a));
+          currentValue: profileProvider.totalXp,
+        );
+    _showAchievementSnackBar(a1);
 
     // Check perfect quiz achievement
     if (quizProvider.score == quizProvider.totalQuestions &&
         quizProvider.totalQuestions > 0) {
-      achievementProvider
+      final a2 = await achievementProvider
           .checkAndUnlock(
             userId: userId,
             conditionType: 'perfect_quiz',
             currentValue: 1,
-          )
-          .then((a) => _showAchievementSnackBar(a));
+          );
+      _showAchievementSnackBar(a2);
     }
 
     // Check words_learned / words_reviewed achievements
-    achievementProvider
+    final a3 = await achievementProvider
         .checkAndUnlock(
           userId: userId,
           conditionType: 'words_learned',
           currentValue: quizProvider.totalQuestions,
-        )
-        .then((a) => _showAchievementSnackBar(a));
+        );
+    _showAchievementSnackBar(a3);
   }
 
   void _showAchievementSnackBar(AchievementModel? achievement) {
@@ -153,7 +165,7 @@ class _QuizScreenState extends State<QuizScreen> {
         content: Row(
           children: [
             const Icon(Icons.emoji_events_rounded,
-                color: AppColors.xpGold, size: 24),
+                color: AppColors.xpGold, size: 24,),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -163,7 +175,7 @@ class _QuizScreenState extends State<QuizScreen> {
                   const Text(
                     'Achievement Unlocked!',
                     style: TextStyle(
-                        fontWeight: FontWeight.bold, color: Colors.white),
+                        fontWeight: FontWeight.bold, color: Colors.white,),
                   ),
                   Text(
                     achievement.name,
@@ -185,12 +197,12 @@ class _QuizScreenState extends State<QuizScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppTheme.background(context),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: AppColors.textPrimary),
+          icon: Icon(Icons.close, color: AppTheme.textPrimary(context)),
           onPressed: () => context.go('/home'),
         ),
         title: Consumer<QuizProvider>(
@@ -260,7 +272,7 @@ class _QuizScreenState extends State<QuizScreen> {
                       color: AppColors.textHint,
                     ),
                     const SizedBox(height: 16),
-                    Text(
+                    const Text(
                       'No words available for the quiz.\nPlease check the word library first.',
                       style: AppTextStyles.bodyMedium,
                       textAlign: TextAlign.center,
@@ -326,7 +338,7 @@ class _QuizScreenState extends State<QuizScreen> {
                       horizontal: 24,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.cardBackground,
+                      color: AppTheme.card(context),
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
@@ -338,7 +350,7 @@ class _QuizScreenState extends State<QuizScreen> {
                     ),
                     child: Column(
                       children: [
-                        Text(
+                        const Text(
                           'What is the translation of:',
                           style: AppTextStyles.bodyMedium,
                         ),
@@ -389,7 +401,7 @@ class _QuizScreenState extends State<QuizScreen> {
                         _handleTimeout();
                       });
                       return const SizedBox.shrink();
-                    }),
+                    },),
                 ],
               ),
             ),
@@ -438,9 +450,9 @@ class _QuizScreenState extends State<QuizScreen> {
     required int? selectedIndex,
     required bool timedOut,
   }) {
-    Color backgroundColor = AppColors.cardBackground;
-    Color borderColor = AppColors.textHint.withValues(alpha:0.2);
-    Color textColor = AppColors.textPrimary;
+    Color backgroundColor = AppTheme.card(context);
+    Color borderColor = AppTheme.textHint(context).withValues(alpha:0.2);
+    Color textColor = AppTheme.textPrimary(context);
 
     if (isAnswered) {
       if (option.isCorrect) {

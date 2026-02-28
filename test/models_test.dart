@@ -145,7 +145,7 @@ void main() {
 
   group('QuizOptionModel', () {
     test('constructs correctly', () {
-      final option =
+      const option =
           QuizOptionModel(wordId: 1, text: 'привет', isCorrect: true);
       expect(option.isCorrect, isTrue);
       expect(option.text, 'привет');

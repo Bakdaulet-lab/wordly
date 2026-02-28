@@ -1,3 +1,4 @@
+/// Convenience date helpers for streak and stats calculations.
 class DateHelpers {
   DateHelpers._();
 

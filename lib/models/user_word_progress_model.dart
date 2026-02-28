@@ -1,3 +1,4 @@
+/// Tracks a user's spaced-repetition progress for a single word.
 class UserWordProgressModel {
   final int id;
   final String userId;
@@ -10,7 +11,7 @@ class UserWordProgressModel {
   final int correctCount;
   final int incorrectCount;
 
-  UserWordProgressModel({
+  const UserWordProgressModel({
     required this.id,
     required this.userId,
     required this.wordId,
@@ -53,4 +54,44 @@ class UserWordProgressModel {
       'incorrect_count': incorrectCount,
     };
   }
+
+  UserWordProgressModel copyWith({
+    int? id,
+    String? userId,
+    int? wordId,
+    double? easeFactor,
+    int? intervalDays,
+    int? repetitionCount,
+    DateTime? nextReviewDate,
+    DateTime? lastReviewDate,
+    int? correctCount,
+    int? incorrectCount,
+  }) {
+    return UserWordProgressModel(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      wordId: wordId ?? this.wordId,
+      easeFactor: easeFactor ?? this.easeFactor,
+      intervalDays: intervalDays ?? this.intervalDays,
+      repetitionCount: repetitionCount ?? this.repetitionCount,
+      nextReviewDate: nextReviewDate ?? this.nextReviewDate,
+      lastReviewDate: lastReviewDate ?? this.lastReviewDate,
+      correctCount: correctCount ?? this.correctCount,
+      incorrectCount: incorrectCount ?? this.incorrectCount,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is UserWordProgressModel &&
+          runtimeType == other.runtimeType &&
+          id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
+
+  @override
+  String toString() =>
+      'UserWordProgressModel(id: $id, userId: $userId, wordId: $wordId, repetitions: $repetitionCount)';
 }

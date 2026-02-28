@@ -1,3 +1,4 @@
+/// Daily usage statistics for a single user on a given date.
 class DailyStatsModel {
   final int id;
   final String userId;
@@ -9,7 +10,7 @@ class DailyStatsModel {
   final int xpEarned;
   final int sessionDurationSeconds;
 
-  DailyStatsModel({
+  const DailyStatsModel({
     required this.id,
     required this.userId,
     required this.date,
@@ -47,4 +48,48 @@ class DailyStatsModel {
       'session_duration_seconds': sessionDurationSeconds,
     };
   }
+
+  DailyStatsModel copyWith({
+    int? id,
+    String? userId,
+    DateTime? date,
+    int? wordsLearned,
+    int? wordsReviewed,
+    int? correctAnswers,
+    int? incorrectAnswers,
+    int? xpEarned,
+    int? sessionDurationSeconds,
+  }) {
+    return DailyStatsModel(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      date: date ?? this.date,
+      wordsLearned: wordsLearned ?? this.wordsLearned,
+      wordsReviewed: wordsReviewed ?? this.wordsReviewed,
+      correctAnswers: correctAnswers ?? this.correctAnswers,
+      incorrectAnswers: incorrectAnswers ?? this.incorrectAnswers,
+      xpEarned: xpEarned ?? this.xpEarned,
+      sessionDurationSeconds: sessionDurationSeconds ?? this.sessionDurationSeconds,
+    );
+  }
+
+  /// Total number of answers (correct + incorrect) for the day.
+  int get totalAnswers => correctAnswers + incorrectAnswers;
+
+  /// Accuracy as a fraction (0.0 – 1.0). Returns 0 if no answers.
+  double get accuracy => totalAnswers > 0 ? correctAnswers / totalAnswers : 0.0;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DailyStatsModel &&
+          runtimeType == other.runtimeType &&
+          id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
+
+  @override
+  String toString() =>
+      'DailyStatsModel(id: $id, date: $date, xpEarned: $xpEarned)';
 }

@@ -1,3 +1,4 @@
+/// A global achievement definition from the `achievements` table.
 class AchievementModel {
   final int id;
   final String name;
@@ -7,7 +8,7 @@ class AchievementModel {
   final int conditionValue;
   final DateTime createdAt;
 
-  AchievementModel({
+  const AchievementModel({
     required this.id,
     required this.name,
     required this.description,
@@ -38,4 +39,18 @@ class AchievementModel {
       'condition_value': conditionValue,
     };
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AchievementModel &&
+          runtimeType == other.runtimeType &&
+          id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
+
+  @override
+  String toString() =>
+      'AchievementModel(id: $id, name: $name, conditionType: $conditionType)';
 }

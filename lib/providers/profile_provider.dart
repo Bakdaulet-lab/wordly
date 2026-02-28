@@ -4,6 +4,7 @@ import '../di/service_locator.dart';
 import '../repositories/profile_repository.dart';
 import '../utils/xp_calculator.dart';
 
+/// Manages the current user's profile data and XP/level display.
 class ProfileProvider extends ChangeNotifier {
   final ProfileRepository _profileRepo = sl<ProfileRepository>();
 

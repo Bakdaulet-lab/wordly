@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
+import '../../constants/app_theme.dart';
 import '../../models/achievement_model.dart';
 import '../../providers/achievement_provider.dart';
+import '../../providers/auth_provider.dart';
 
 class AchievementsScreen extends StatelessWidget {
   const AchievementsScreen({super.key});
@@ -11,11 +14,11 @@ class AchievementsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppTheme.background(context),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Text('Achievements', style: AppTextStyles.heading2),
+        title: const Text('Achievements', style: AppTextStyles.heading2),
         centerTitle: true,
       ),
       body: Consumer<AchievementProvider>(
@@ -45,6 +48,21 @@ class AchievementsScreen extends StatelessWidget {
                         color: AppColors.errorRed,
                       ),
                       textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        final userId = context.read<AuthProvider>().user?.id;
+                        if (userId != null) {
+                          achievementProvider.loadAchievements(userId);
+                        }
+                      },
+                      icon: const Icon(Icons.refresh_rounded, size: 18),
+                      label: const Text('Retry'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                      ),
                     ),
                   ],
                 ),
@@ -104,7 +122,18 @@ class AchievementsScreen extends StatelessWidget {
                     final achievement = achievements[index];
                     final isUnlocked =
                         achievementProvider.isUnlocked(achievement.id);
-                    return _buildAchievementCard(achievement, isUnlocked);
+                    return _buildAchievementCard(context, achievement, isUnlocked)
+                        .animate()
+                        .fadeIn(
+                          duration: 350.ms,
+                          delay: Duration(milliseconds: 50 * (index % 8)),
+                        )
+                        .scale(
+                          begin: const Offset(0.95, 0.95),
+                          end: const Offset(1.0, 1.0),
+                          duration: 350.ms,
+                          delay: Duration(milliseconds: 50 * (index % 8)),
+                        );
                   },
                 ),
               ),
@@ -115,15 +144,15 @@ class AchievementsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildAchievementCard(AchievementModel achievement, bool isUnlocked) {
+  Widget _buildAchievementCard(BuildContext context, AchievementModel achievement, bool isUnlocked) {
     final iconData = _getIconData(achievement.iconName);
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isUnlocked
-            ? AppColors.cardBackground
-            : AppColors.cardBackground.withValues(alpha:0.7),
+            ? AppTheme.card(context)
+            : AppTheme.card(context).withValues(alpha:0.7),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isUnlocked

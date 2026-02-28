@@ -4,6 +4,7 @@ import '../models/user_achievement_model.dart';
 import '../di/service_locator.dart';
 import '../repositories/achievement_repository.dart';
 
+/// Manages achievement data and unlock state.
 class AchievementProvider extends ChangeNotifier {
   final AchievementRepository _achievementRepo = sl<AchievementRepository>();
 

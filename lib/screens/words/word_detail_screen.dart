@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
+import '../../constants/app_theme.dart';
 import '../../models/word_model.dart';
 import '../../providers/word_list_provider.dart';
 import '../../services/tts_service.dart';
@@ -20,12 +21,12 @@ class WordDetailScreen extends StatelessWidget {
 
         if (word == null) {
           return Scaffold(
-            backgroundColor: AppColors.background,
+            backgroundColor: AppTheme.background(context),
             appBar: AppBar(
               backgroundColor: Colors.transparent,
               elevation: 0,
               leading: IconButton(
-                icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+                icon: Icon(Icons.arrow_back, color: AppTheme.textPrimary(context)),
                 onPressed: () => context.pop(),
               ),
             ),
@@ -52,15 +53,15 @@ class WordDetailScreen extends StatelessWidget {
         }
 
         return Scaffold(
-          backgroundColor: AppColors.background,
+          backgroundColor: AppTheme.background(context),
           appBar: AppBar(
             backgroundColor: Colors.transparent,
             elevation: 0,
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+              icon: Icon(Icons.arrow_back, color: AppTheme.textPrimary(context)),
               onPressed: () => context.pop(),
             ),
-            title: Text(
+            title: const Text(
               'Word Details',
               style: AppTextStyles.heading3,
             ),
@@ -124,6 +125,7 @@ class WordDetailScreen extends StatelessWidget {
                 if (word.exampleSentence != null &&
                     word.exampleSentence!.isNotEmpty) ...[
                   _buildDetailSection(
+                    context: context,
                     icon: Icons.format_quote_rounded,
                     title: 'Example',
                     child: Text(
@@ -138,6 +140,7 @@ class WordDetailScreen extends StatelessWidget {
 
                 // Difficulty level
                 _buildDetailSection(
+                  context: context,
                   icon: Icons.signal_cellular_alt_rounded,
                   title: 'Difficulty',
                   child: _buildDifficultyIndicator(word.difficultyLevel),
@@ -146,6 +149,7 @@ class WordDetailScreen extends StatelessWidget {
 
                 // Category
                 _buildDetailSection(
+                  context: context,
                   icon: Icons.category_rounded,
                   title: 'Category',
                   child: Container(
@@ -183,6 +187,7 @@ class WordDetailScreen extends StatelessWidget {
   }
 
   Widget _buildDetailSection({
+    required BuildContext context,
     required IconData icon,
     required String title,
     required Widget child,
@@ -191,7 +196,7 @@ class WordDetailScreen extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.cardBackground,
+        color: AppTheme.card(context),
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -206,13 +211,13 @@ class WordDetailScreen extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, color: AppColors.primary, size: 20),
+              Icon(icon, color: AppTheme.primary(context), size: 20),
               const SizedBox(width: 8),
               Text(
                 title,
                 style: AppTextStyles.bodyMedium.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+                  color: AppTheme.textPrimary(context),
                 ),
               ),
             ],

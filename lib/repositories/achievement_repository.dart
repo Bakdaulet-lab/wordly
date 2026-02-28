@@ -15,9 +15,9 @@ class AchievementRepository {
   }
 
   Future<Result<List<UserAchievementModel>>> fetchUserAchievements(
-      String userId) {
+      String userId,) {
     return apiGuard(
-        () => _achievementService.fetchUserAchievements(userId));
+        () => _achievementService.fetchUserAchievements(userId),);
   }
 
   Future<Result<AchievementModel?>> checkAndUnlock({
@@ -29,6 +29,6 @@ class AchievementRepository {
           userId: userId,
           conditionType: conditionType,
           currentValue: currentValue,
-        ));
+        ),);
   }
 }

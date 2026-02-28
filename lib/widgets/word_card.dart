@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
 import '../../models/word_model.dart';
 
-class WordCard extends StatelessWidget {
+class WordCard extends StatefulWidget {
   final WordModel word;
   final VoidCallback? onTap;
   final bool isFavorite;
   final VoidCallback? onFavoriteToggle;
+  final int animationIndex;
 
   const WordCard({
     super.key,
@@ -15,7 +17,15 @@ class WordCard extends StatelessWidget {
     this.onTap,
     this.isFavorite = false,
     this.onFavoriteToggle,
+    this.animationIndex = 0,
   });
+
+  @override
+  State<WordCard> createState() => _WordCardState();
+}
+
+class _WordCardState extends State<WordCard> {
+  bool _pressed = false;
 
   Color _difficultyColor(int level) {
     switch (level) {
@@ -53,56 +63,81 @@ class WordCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(word.englishWord, style: AppTextStyles.heading3),
-                    const SizedBox(height: 4),
-                    Text(word.russianTranslation, style: AppTextStyles.bodyMedium),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _difficultyColor(word.difficultyLevel).withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  _difficultyLabel(word.difficultyLevel),
-                  style: AppTextStyles.caption.copyWith(
-                    color: _difficultyColor(word.difficultyLevel),
-                    fontWeight: FontWeight.w600,
+    final delay = Duration(milliseconds: 50 * (widget.animationIndex % 8));
+    final diffLabel = _difficultyLabel(widget.word.difficultyLevel);
+    final favLabel = widget.isFavorite ? ', favorited' : '';
+
+    return Semantics(
+      button: true,
+      label: '${widget.word.englishWord}, ${widget.word.russianTranslation}. '
+          'Difficulty: $diffLabel$favLabel',
+      child: AnimatedScale(
+      scale: _pressed ? 0.97 : 1.0,
+      duration: const Duration(milliseconds: 120),
+      curve: Curves.easeInOut,
+      child: Card(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        elevation: 1,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: InkWell(
+          onTap: widget.onTap,
+          onTapDown: (_) => setState(() => _pressed = true),
+          onTapUp: (_) => setState(() => _pressed = false),
+          onTapCancel: () => setState(() => _pressed = false),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(widget.word.englishWord, style: AppTextStyles.heading3),
+                      const SizedBox(height: 4),
+                      Text(widget.word.russianTranslation, style: AppTextStyles.bodyMedium),
+                    ],
                   ),
                 ),
-              ),
-              if (onFavoriteToggle != null) ...[
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: onFavoriteToggle,
-                  child: Icon(
-                    isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                    color: isFavorite ? AppColors.errorRed : AppColors.textHint,
-                    size: 22,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _difficultyColor(widget.word.difficultyLevel).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    _difficultyLabel(widget.word.difficultyLevel),
+                    style: AppTextStyles.caption.copyWith(
+                      color: _difficultyColor(widget.word.difficultyLevel),
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
+                if (widget.onFavoriteToggle != null) ...[
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: widget.onFavoriteToggle,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 250),
+                      transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
+                      child: Icon(
+                        widget.isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                        key: ValueKey(widget.isFavorite),
+                        color: widget.isFavorite ? AppColors.errorRed : AppColors.textHint,
+                        size: 22,
+                      ),
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
-    );
+    ),
+    )
+        .animate()
+        .fadeIn(duration: 350.ms, delay: delay, curve: Curves.easeOut)
+        .slideY(begin: 0.08, end: 0, duration: 350.ms, delay: delay, curve: Curves.easeOut);
   }
 }

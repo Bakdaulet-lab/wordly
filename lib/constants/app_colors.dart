@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+/// Semantic colour palette used by the light and dark themes.
 class AppColors {
   AppColors._();
 

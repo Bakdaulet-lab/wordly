@@ -14,7 +14,7 @@ class ProfileRepository {
   }
 
   Future<Result<void>> updateProfile(
-      String userId, Map<String, dynamic> data) {
+      String userId, Map<String, dynamic> data,) {
     return apiGuard(() => _profileService.updateProfile(userId, data));
   }
 

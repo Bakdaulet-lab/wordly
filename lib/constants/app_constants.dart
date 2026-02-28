@@ -1,3 +1,4 @@
+/// Numeric and string constants used across the application.
 class AppConstants {
   AppConstants._();
 

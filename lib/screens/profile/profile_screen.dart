@@ -3,8 +3,13 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
+import '../../constants/app_theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/profile_provider.dart';
+import '../../providers/word_list_provider.dart';
+import '../../di/service_locator.dart';
+import '../../services/export_service.dart';
+import '../../utils/input_sanitizer.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -74,8 +79,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              final newName = nameController.text.trim();
-              if (newName.isEmpty) return;
+              final newName = InputSanitizer.sanitizeDisplayName(
+                nameController.text,
+              );
+              if (newName.isEmpty || newName.length < 2) return;
               Navigator.of(dialogContext).pop();
 
               final profileProvider = context.read<ProfileProvider>();
@@ -104,6 +111,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
     ).then((_) => nameController.dispose());
+  }
+
+  Future<void> _handleExport(BuildContext context) async {
+    final exportService = sl<ExportService>();
+    final wordProvider = context.read<WordListProvider>();
+
+    try {
+      await exportService.exportWords(wordProvider.allWords);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Export failed. Sharing may not be available on this device.'),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -140,6 +165,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       textAlign: TextAlign.center,
                     ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        final userId = context.read<AuthProvider>().user?.id;
+                        if (userId != null) {
+                          profileProvider.refreshProfile(userId);
+                        }
+                      },
+                      icon: const Icon(Icons.refresh_rounded, size: 18),
+                      label: const Text('Retry'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
                   ],
                 ),
               );
@@ -162,13 +202,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 // Avatar
                 CircleAvatar(
                   radius: 48,
-                  backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+                  backgroundColor: AppTheme.primary(context).withValues(alpha: 0.15),
                   child: Text(
                     displayName.isNotEmpty
                         ? displayName[0].toUpperCase()
                         : '?',
                     style: AppTextStyles.heading1.copyWith(
-                      color: AppColors.primary,
+                      color: AppTheme.primary(context),
                       fontSize: 36,
                     ),
                   ),
@@ -186,10 +226,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(width: 4),
                     IconButton(
                       onPressed: _showEditNameDialog,
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.edit_rounded,
                         size: 18,
-                        color: AppColors.textHint,
+                        color: AppTheme.textHint(context),
                       ),
                       visualDensity: VisualDensity.compact,
                       tooltip: 'Edit name',
@@ -210,7 +250,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: AppColors.cardBackground,
+                    color: AppTheme.card(context),
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
@@ -235,7 +275,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           Container(
                             width: 1,
                             height: 48,
-                            color: AppColors.textHint.withValues(alpha: 0.2),
+                            color: AppTheme.textHint(context).withValues(alpha: 0.2),
                           ),
                           Expanded(
                             child: _buildStatItem(
@@ -249,7 +289,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       const SizedBox(height: 20),
                       Divider(
-                        color: AppColors.textHint.withValues(alpha: 0.2),
+                        color: AppTheme.textHint(context).withValues(alpha: 0.2),
                         height: 1,
                       ),
                       const SizedBox(height: 20),
@@ -267,7 +307,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           Container(
                             width: 1,
                             height: 48,
-                            color: AppColors.textHint.withValues(alpha: 0.2),
+                            color: AppTheme.textHint(context).withValues(alpha: 0.2),
                           ),
                           Expanded(
                             child: _buildStatItem(
@@ -291,7 +331,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: AppColors.cardBackground,
+                      color: AppTheme.card(context),
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
@@ -309,7 +349,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           size: 20,
                         ),
                         const SizedBox(width: 12),
-                        Text(
+                        const Text(
                           'Member since',
                           style: AppTextStyles.bodyMedium,
                         ),
@@ -324,6 +364,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                 const SizedBox(height: 32),
+
+                // Export data button
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _handleExport(context),
+                    icon: const Icon(Icons.file_download_outlined),
+                    label: const Text('Export My Data'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.successGreen,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      side: const BorderSide(color: AppColors.successGreen),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Settings button
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => context.push('/settings'),
+                    icon: const Icon(Icons.settings_rounded),
+                    label: const Text('Settings'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.primary(context),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      side: BorderSide(color: AppTheme.primary(context)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
 
                 // Log out button
                 SizedBox(
@@ -349,11 +427,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   color: Colors.white,
                                 ),
                               )
-                            : Row(
+                            : const Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  const Icon(Icons.logout_rounded, size: 20),
-                                  const SizedBox(width: 8),
+                                  Icon(Icons.logout_rounded, size: 20),
+                                  SizedBox(width: 8),
                                   Text(
                                     'Log Out',
                                     style: AppTextStyles.button,

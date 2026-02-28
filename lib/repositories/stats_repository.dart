@@ -16,22 +16,26 @@ class StatsRepository {
   }
 
   Future<Result<void>> incrementStat(
-      String userId, String field, int amount) {
+      String userId, String field, int amount,) {
     return apiGuard(
-        () => _statsService.incrementStat(userId, field, amount));
+        () => _statsService.incrementStat(userId, field, amount),);
   }
 
   Future<Result<List<DailyStatsModel>>> getStatsForRange(
-      String userId, DateTime startDate, DateTime endDate) {
+      String userId, DateTime startDate, DateTime endDate,) {
     return apiGuard(
-        () => _statsService.getStatsForRange(userId, startDate, endDate));
+        () => _statsService.getStatsForRange(userId, startDate, endDate),);
   }
 
-  Future<Result<void>> updateStreak(String userId) {
+  Future<Result<int>> updateStreak(String userId) {
     return apiGuard(() => _statsService.updateStreak(userId));
   }
 
-  Future<int> getGoal() => _dailyGoalService.getGoal();
+  Future<Result<int>> getGoal() {
+    return apiGuard(() => _dailyGoalService.getGoal());
+  }
 
-  Future<void> setGoal(int goal) => _dailyGoalService.setGoal(goal);
+  Future<Result<void>> setGoal(int goal) {
+    return apiGuard(() => _dailyGoalService.setGoal(goal));
+  }
 }

@@ -1,5 +1,6 @@
 import '../constants/app_constants.dart';
 
+/// Return value of [calculateSM2] containing updated SM-2 parameters.
 class SM2Result {
   final int repetitionCount;
   final double easeFactor;
@@ -14,6 +15,7 @@ class SM2Result {
   });
 }
 
+/// Calculates updated SM-2 spaced-repetition parameters based on [quality].
 SM2Result calculateSM2({
   required int quality,
   required int repetitionCount,

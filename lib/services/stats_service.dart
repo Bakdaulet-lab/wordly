@@ -2,13 +2,16 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/daily_stats_model.dart';
 import '../models/profile_model.dart';
 import '../utils/date_helpers.dart';
+import 'interfaces/i_stats_service.dart';
 
-class StatsService {
+/// Supabase data-access layer for daily statistics and streak tracking.
+class StatsService implements IStatsService {
   final SupabaseClient _client;
 
   StatsService(this._client);
 
   /// Get or create today's stats row.
+  @override
   Future<DailyStatsModel> getOrCreateTodayStats(String userId) async {
     final today = DateHelpers.today().toIso8601String().split('T')[0];
 
@@ -36,6 +39,7 @@ class StatsService {
   }
 
   /// Increment a numeric field in today's stats.
+  @override
   Future<void> incrementStat(String userId, String field, int amount) async {
     final today = DateHelpers.today().toIso8601String().split('T')[0];
 
@@ -61,6 +65,7 @@ class StatsService {
   }
 
   /// Get stats for a date range.
+  @override
   Future<List<DailyStatsModel>> getStatsForRange(
     String userId,
     DateTime startDate,
@@ -82,8 +87,9 @@ class StatsService {
         .toList();
   }
 
-  /// Update streak based on last login date.
-  Future<void> updateStreak(String userId) async {
+  /// Update streak based on last login date and return the new value.
+  @override
+  Future<int> updateStreak(String userId) async {
     final profileResponse = await _client
         .from('profiles')
         .select()
@@ -91,7 +97,7 @@ class StatsService {
         .limit(1);
 
     final list = profileResponse as List;
-    if (list.isEmpty) return;
+    if (list.isEmpty) return 0;
 
     final profile = ProfileModel.fromJson(list.first);
     final today = DateHelpers.today();
@@ -104,7 +110,7 @@ class StatsService {
       newStreak = 1;
     } else if (DateHelpers.isToday(profile.lastLoginDate!)) {
       // Already logged in today, no change
-      return;
+      return profile.currentStreak;
     } else if (DateHelpers.isYesterday(profile.lastLoginDate!)) {
       // Consecutive day
       newStreak = profile.currentStreak + 1;
@@ -122,5 +128,7 @@ class StatsService {
       'longest_streak': newLongest,
       'last_login_date': today.toIso8601String().split('T')[0],
     }).eq('id', userId);
+
+    return newStreak;
   }
 }

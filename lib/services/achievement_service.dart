@@ -1,12 +1,15 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/achievement_model.dart';
 import '../models/user_achievement_model.dart';
+import 'interfaces/i_achievement_service.dart';
 
-class AchievementService {
+/// Supabase data-access layer for achievements and unlock tracking.
+class AchievementService implements IAchievementService {
   final SupabaseClient _client;
 
   AchievementService(this._client);
 
+  @override
   Future<List<AchievementModel>> fetchAllAchievements() async {
     final response = await _client
         .from('achievements')
@@ -17,6 +20,7 @@ class AchievementService {
         .toList();
   }
 
+  @override
   Future<List<UserAchievementModel>> fetchUserAchievements(String userId) async {
     final response = await _client
         .from('user_achievements')
@@ -29,6 +33,7 @@ class AchievementService {
 
   /// Check if a condition is met and unlock the achievement if not already earned.
   /// Returns the newly unlocked achievement, or null if already unlocked or condition not met.
+  @override
   Future<AchievementModel?> checkAndUnlock({
     required String userId,
     required String conditionType,

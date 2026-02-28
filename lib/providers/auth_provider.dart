@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../di/service_locator.dart';
 import '../repositories/auth_repository.dart';
 
+/// Manages authentication state (sign-up, sign-in, sign-out, reset).
 class AuthProvider extends ChangeNotifier {
   final AuthRepository _authRepo = sl<AuthRepository>();
 

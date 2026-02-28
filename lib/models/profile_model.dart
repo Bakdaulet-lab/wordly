@@ -1,3 +1,4 @@
+/// User profile data from the `profiles` table.
 class ProfileModel {
   final String id;
   final String displayName;
@@ -9,7 +10,7 @@ class ProfileModel {
   final DateTime? lastLoginDate;
   final DateTime createdAt;
 
-  ProfileModel({
+  const ProfileModel({
     required this.id,
     required this.displayName,
     this.avatarUrl,
@@ -72,4 +73,18 @@ class ProfileModel {
       createdAt: createdAt,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ProfileModel &&
+          runtimeType == other.runtimeType &&
+          id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
+
+  @override
+  String toString() =>
+      'ProfileModel(id: $id, displayName: $displayName, level: $level, totalXp: $totalXp)';
 }

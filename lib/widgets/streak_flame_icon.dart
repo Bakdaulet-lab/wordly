@@ -12,23 +12,29 @@ class StreakFlameIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          Icons.local_fire_department_rounded,
-          color: streakCount > 0 ? AppColors.streakOrange : AppColors.textHint,
-          size: 28,
-        ),
-        const SizedBox(width: 4),
-        Text(
-          '$streakCount',
-          style: AppTextStyles.heading3.copyWith(
+    return Semantics(
+      label: streakCount > 0
+          ? 'Current streak: $streakCount day${streakCount == 1 ? '' : 's'}'
+          : 'No active streak',
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.local_fire_department_rounded,
             color: streakCount > 0 ? AppColors.streakOrange : AppColors.textHint,
-            fontWeight: _isMilestone ? FontWeight.w800 : FontWeight.w600,
+            size: 28,
+            semanticLabel: 'Streak flame icon',
           ),
-        ),
-      ],
+          const SizedBox(width: 4),
+          Text(
+            '$streakCount',
+            style: AppTextStyles.heading3.copyWith(
+              color: streakCount > 0 ? AppColors.streakOrange : AppColors.textHint,
+              fontWeight: _isMilestone ? FontWeight.w800 : FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

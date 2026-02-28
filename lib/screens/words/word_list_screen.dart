@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
+import '../../constants/app_theme.dart';
 import '../../models/word_model.dart';
 import '../../providers/word_list_provider.dart';
+import '../../utils/input_sanitizer.dart';
 
 class WordListScreen extends StatefulWidget {
   const WordListScreen({super.key});
@@ -15,11 +18,27 @@ class WordListScreen extends StatefulWidget {
 
 class _WordListScreenState extends State<WordListScreen> {
   final _searchController = TextEditingController();
+  final _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      context.read<WordListProvider>().loadMore();
+    }
   }
 
   @override
@@ -32,7 +51,7 @@ class _WordListScreenState extends State<WordListScreen> {
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
             child: Row(
               children: [
-                Text('Word Library', style: AppTextStyles.heading1),
+                const Text('Word Library', style: AppTextStyles.heading1),
                 const Spacer(),
                 _buildFavoritesToggle(),
                 _buildSortButton(),
@@ -70,7 +89,7 @@ class _WordListScreenState extends State<WordListScreen> {
     return Consumer<WordListProvider>(
       builder: (context, provider, child) {
         return PopupMenuButton<WordSortOption>(
-          icon: const Icon(Icons.sort_rounded, color: AppColors.textHint),
+          icon: Icon(Icons.sort_rounded, color: AppTheme.textHint(context)),
           tooltip: 'Sort words',
           onSelected: (option) => provider.setSortOption(option),
           itemBuilder: (context) => [
@@ -127,17 +146,18 @@ class _WordListScreenState extends State<WordListScreen> {
           return TextField(
             controller: _searchController,
             onChanged: (value) {
-              context.read<WordListProvider>().setSearchQuery(value);
+              final sanitized = InputSanitizer.sanitizeSearch(value);
+              context.read<WordListProvider>().setSearchQuery(sanitized);
             },
             decoration: InputDecoration(
               hintText: 'Search words...',
               hintStyle: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.textHint,
+                color: AppTheme.textHint(context),
               ),
-              prefixIcon: const Icon(Icons.search, color: AppColors.textHint),
+              prefixIcon: Icon(Icons.search, color: AppTheme.textHint(context)),
               suffixIcon: value.text.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.clear, color: AppColors.textHint),
+                      icon: Icon(Icons.clear, color: AppTheme.textHint(context)),
                       onPressed: () {
                         _searchController.clear();
                         context.read<WordListProvider>().setSearchQuery('');
@@ -145,7 +165,7 @@ class _WordListScreenState extends State<WordListScreen> {
                     )
                   : null,
               filled: true,
-              fillColor: AppColors.surface,
+              fillColor: AppTheme.surface(context),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide.none,
@@ -182,7 +202,7 @@ class _WordListScreenState extends State<WordListScreen> {
                     label: Text(
                       'All',
                       style: AppTextStyles.bodySmall.copyWith(
-                        color: isSelected ? Colors.white : AppColors.textPrimary,
+                        color: isSelected ? Colors.white : AppTheme.textPrimary(context),
                         fontWeight:
                             isSelected ? FontWeight.w600 : FontWeight.normal,
                       ),
@@ -191,8 +211,8 @@ class _WordListScreenState extends State<WordListScreen> {
                     onSelected: (_) {
                       wordListProvider.setCategory(null);
                     },
-                    backgroundColor: AppColors.surface,
-                    selectedColor: AppColors.primary,
+                    backgroundColor: AppTheme.surface(context),
+                    selectedColor: AppTheme.primary(context),
                     checkmarkColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
@@ -210,7 +230,7 @@ class _WordListScreenState extends State<WordListScreen> {
                   label: Text(
                     category,
                     style: AppTextStyles.bodySmall.copyWith(
-                      color: isSelected ? Colors.white : AppColors.textPrimary,
+                      color: isSelected ? Colors.white : AppTheme.textPrimary(context),
                       fontWeight:
                           isSelected ? FontWeight.w600 : FontWeight.normal,
                     ),
@@ -221,8 +241,8 @@ class _WordListScreenState extends State<WordListScreen> {
                       isSelected ? null : category,
                     );
                   },
-                  backgroundColor: AppColors.surface,
-                  selectedColor: AppColors.primary,
+                  backgroundColor: AppTheme.surface(context),
+                  selectedColor: AppTheme.primary(context),
                   checkmarkColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
@@ -304,15 +324,69 @@ class _WordListScreenState extends State<WordListScreen> {
           );
         }
 
-        return ListView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-          itemCount: words.length,
-          itemBuilder: (context, index) {
-            return _buildWordCard(context, words[index]);
-          },
+        // Total items = words + optional loading indicator at the bottom
+        final itemCount = words.length + (wordListProvider.hasMore ? 1 : 0);
+
+        return RefreshIndicator(
+          color: AppColors.primary,
+          onRefresh: () => wordListProvider.refreshWords(),
+          child: ListView.builder(
+            controller: _scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+            itemCount: itemCount,
+            itemBuilder: (context, index) {
+              // Loading / load-more indicator at the bottom
+              if (index >= words.length) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Center(
+                    child: wordListProvider.isLoadingMore
+                        ? Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  color: AppTheme.primary(context).withValues(alpha: 0.6),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                'Loading more...',
+                                style: AppTextStyles.bodySmall.copyWith(
+                                  color: AppTheme.textHint(context),
+                                ),
+                              ),
+                            ],
+                          )
+                        : Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            color: AppTheme.textHint(context),
+                            size: 28,
+                          ),
+                  ),
+                );
+              }
+
+              return _buildAnimatedWordCard(context, words[index], index);
+            },
+          ),
         );
       },
     );
+  }
+
+  Widget _buildAnimatedWordCard(BuildContext context, WordModel word, int index) {
+    // Stagger delay capped at 8 items so late items don't wait too long
+    final delay = Duration(milliseconds: 50 * (index % 8));
+
+    return _buildWordCard(context, word)
+        .animate()
+        .fadeIn(duration: 350.ms, delay: delay, curve: Curves.easeOut)
+        .slideY(begin: 0.08, end: 0, duration: 350.ms, delay: delay, curve: Curves.easeOut);
   }
 
   Widget _buildWordCard(BuildContext context, WordModel word) {
@@ -321,7 +395,7 @@ class _WordListScreenState extends State<WordListScreen> {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
-      color: AppColors.cardBackground,
+      color: AppTheme.card(context),
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
@@ -353,10 +427,16 @@ class _WordListScreenState extends State<WordListScreen> {
               const SizedBox(width: 8),
               GestureDetector(
                 onTap: () => provider.toggleFavorite(word.id),
-                child: Icon(
-                  isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                  color: isFav ? AppColors.errorRed : AppColors.textHint,
-                  size: 22,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  transitionBuilder: (child, anim) =>
+                      ScaleTransition(scale: anim, child: child),
+                  child: Icon(
+                    isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                    key: ValueKey<bool>(isFav),
+                    color: isFav ? AppColors.errorRed : AppColors.textHint,
+                    size: 22,
+                  ),
                 ),
               ),
             ],

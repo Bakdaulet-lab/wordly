@@ -44,7 +44,9 @@ class AchievementBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = isUnlocked ? AppColors.xpGold : AppColors.textHint;
 
-    return Card(
+    return Semantics(
+      label: '${achievement.name} achievement, ${isUnlocked ? 'unlocked' : 'locked'}. ${achievement.description}',
+      child: Card(
       elevation: isUnlocked ? 3 : 1,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
@@ -98,6 +100,7 @@ class AchievementBadge extends StatelessWidget {
           ],
         ),
       ),
+    ),
     );
   }
 }

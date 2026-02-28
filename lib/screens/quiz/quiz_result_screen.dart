@@ -1,19 +1,52 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
+import '../../constants/app_theme.dart';
 import '../../providers/quiz_provider.dart';
 import '../../providers/word_list_provider.dart';
 
-class QuizResultScreen extends StatelessWidget {
+class QuizResultScreen extends StatefulWidget {
   const QuizResultScreen({super.key});
+
+  @override
+  State<QuizResultScreen> createState() => _QuizResultScreenState();
+}
+
+class _QuizResultScreenState extends State<QuizResultScreen> {
+  bool _isSharing = false;
+
+  Future<void> _handleShare(int score, int total, int xpEarned, bool isPerfect) async {
+    if (_isSharing) return;
+    setState(() => _isSharing = true);
+
+    final text = 'I scored $score/$total on Wordly '
+        'and earned $xpEarned XP! '
+        '${isPerfect ? "Perfect score!" : ""}';
+    try {
+      await Share.share(text);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Sharing is not available on this device.'),
+          ),
+        );
+      }
+    }
+
+    // Debounce: prevent re-sharing for 2 seconds
+    await Future.delayed(const Duration(seconds: 2));
+    if (mounted) setState(() => _isSharing = false);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppTheme.background(context),
       body: SafeArea(
         child: Consumer<QuizProvider>(
           builder: (context, quiz, child) {
@@ -42,7 +75,14 @@ class QuizResultScreen extends StatelessWidget {
                         : score >= total / 2
                             ? AppColors.successGreen
                             : AppColors.streakOrange,
-                  ),
+                  )
+                      .animate()
+                      .scale(
+                        begin: const Offset(0.0, 0.0),
+                        end: const Offset(1.0, 1.0),
+                        duration: 600.ms,
+                        curve: Curves.elasticOut,
+                      ),
                   const SizedBox(height: 16),
 
                   // Title
@@ -53,9 +93,11 @@ class QuizResultScreen extends StatelessWidget {
                             ? 'Great Job!'
                             : 'Keep Practicing!',
                     style: AppTextStyles.heading1.copyWith(
-                      color: AppColors.primary,
+                      color: AppTheme.primary(context),
                     ),
-                  ),
+                  )
+                      .animate()
+                      .fadeIn(duration: 400.ms, delay: 200.ms),
                   const SizedBox(height: 32),
 
                   // Score display
@@ -63,7 +105,7 @@ class QuizResultScreen extends StatelessWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: AppColors.cardBackground,
+                      color: AppTheme.card(context),
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
@@ -83,7 +125,7 @@ class QuizResultScreen extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Text(
+                        const Text(
                           'Correct Answers',
                           style: AppTextStyles.bodyMedium,
                         ),
@@ -122,7 +164,7 @@ class QuizResultScreen extends StatelessWidget {
 
                   // Mistakes section
                   if (mistakes.isNotEmpty) ...[
-                    Align(
+                    const Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
                         'Words to Review',
@@ -168,7 +210,7 @@ class QuizResultScreen extends StatelessWidget {
                               ),
                             ],
                           ),
-                        )),
+                        ),),
                     // Practice mistakes button
                     SizedBox(
                       width: double.infinity,
@@ -243,17 +285,20 @@ class QuizResultScreen extends StatelessWidget {
                   SizedBox(
                     width: double.infinity,
                     child: TextButton.icon(
-                      onPressed: () {
-                        final text = 'I scored $score/$total on Wordly '
-                            'and earned $xpEarned XP! '
-                            '${isPerfect ? "Perfect score!" : ""}';
-                        Share.share(text);
-                      },
-                      icon: const Icon(Icons.share_rounded, size: 20),
+                      onPressed: _isSharing
+                          ? null
+                          : () => _handleShare(score, total, xpEarned, isPerfect),
+                      icon: _isSharing
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.share_rounded, size: 20),
                       label: Text(
                         'Share Results',
                         style: AppTextStyles.bodyMedium.copyWith(
-                          color: AppColors.textSecondary,
+                          color: AppTheme.textSecondary(context),
                           fontWeight: FontWeight.w600,
                         ),
                       ),

@@ -5,8 +5,10 @@ import '../models/word_model.dart';
 import '../di/service_locator.dart';
 import '../repositories/word_repository.dart';
 
+/// Sort modes for the word catalogue list.
 enum WordSortOption { defaultOrder, alphabetical, alphabeticalDesc, difficultyAsc, difficultyDesc }
 
+/// Manages the word catalogue with filtering, sorting, and favourites.
 class WordListProvider extends ChangeNotifier {
   final WordRepository _wordRepo = sl<WordRepository>();
 
@@ -22,6 +24,12 @@ class WordListProvider extends ChangeNotifier {
   Set<int> _favoriteIds = {};
   bool _showFavoritesOnly = false;
 
+  // Pagination state
+  static const int _pageSize = 20;
+  int _currentOffset = 0;
+  bool _hasMore = true;
+  bool _isLoadingMore = false;
+
   List<WordModel> get words => _filteredWords;
   List<WordModel> get allWords => _allWords;
   List<String> get categories => _categories;
@@ -32,20 +40,35 @@ class WordListProvider extends ChangeNotifier {
   WordSortOption get sortOption => _sortOption;
   Set<int> get favoriteIds => _favoriteIds;
   bool get showFavoritesOnly => _showFavoritesOnly;
+  bool get hasMore => _hasMore;
+  bool get isLoadingMore => _isLoadingMore;
 
   bool isFavorite(int wordId) => _favoriteIds.contains(wordId);
 
+  /// Load the first page of words (resets pagination).
   Future<void> loadWords() async {
     _isLoading = true;
     _errorMessage = null;
+    _currentOffset = 0;
+    _hasMore = true;
+    _allWords = [];
     notifyListeners();
 
-    final wordsResult = await _wordRepo.fetchAllWords();
+    final wordsResult = await _wordRepo.fetchWords(limit: _pageSize, offset: 0);
     final categoriesResult = await _wordRepo.fetchCategories();
-    _favoriteIds = await _wordRepo.getFavorites();
+    final favoritesResult = await _wordRepo.getFavorites();
+
+    favoritesResult.when(
+      success: (ids) => _favoriteIds = ids,
+      failure: (error) => debugPrint('getFavorites failed: ${error.userMessage}'),
+    );
 
     wordsResult.when(
-      success: (words) => _allWords = words,
+      success: (words) {
+        _allWords = words;
+        _currentOffset = words.length;
+        _hasMore = words.length >= _pageSize;
+      },
       failure: (error) => _errorMessage = error.userMessage,
     );
     categoriesResult.when(
@@ -55,6 +78,62 @@ class WordListProvider extends ChangeNotifier {
 
     _applyFilters();
     _isLoading = false;
+    notifyListeners();
+  }
+
+  /// Load the next page of words (infinite scroll).
+  Future<void> loadMore() async {
+    if (_isLoadingMore || !_hasMore) return;
+
+    _isLoadingMore = true;
+    notifyListeners();
+
+    final result = await _wordRepo.fetchWords(limit: _pageSize, offset: _currentOffset);
+    result.when(
+      success: (words) {
+        _allWords.addAll(words);
+        _currentOffset += words.length;
+        _hasMore = words.length >= _pageSize;
+        _applyFilters();
+      },
+      failure: (_) {
+        // Silently ignore load-more failures; user can scroll again.
+      },
+    );
+
+    _isLoadingMore = false;
+    notifyListeners();
+  }
+
+  /// Full refresh (pull-to-refresh): reloads from scratch.
+  Future<void> refreshWords() async {
+    _currentOffset = 0;
+    _hasMore = true;
+    _errorMessage = null;
+
+    final wordsResult = await _wordRepo.fetchWords(limit: _pageSize, offset: 0);
+    final categoriesResult = await _wordRepo.fetchCategories();
+    final favoritesResult = await _wordRepo.getFavorites();
+
+    favoritesResult.when(
+      success: (ids) => _favoriteIds = ids,
+      failure: (error) => debugPrint('getFavorites refresh failed: ${error.userMessage}'),
+    );
+
+    wordsResult.when(
+      success: (words) {
+        _allWords = words;
+        _currentOffset = words.length;
+        _hasMore = words.length >= _pageSize;
+      },
+      failure: (error) => _errorMessage = error.userMessage,
+    );
+    categoriesResult.when(
+      success: (cats) => _categories = cats,
+      failure: (error) => _errorMessage ??= error.userMessage,
+    );
+
+    _applyFilters();
     notifyListeners();
   }
 
@@ -80,14 +159,19 @@ class WordListProvider extends ChangeNotifier {
   }
 
   Future<void> toggleFavorite(int wordId) async {
-    await _wordRepo.toggleFavorite(wordId);
-    if (_favoriteIds.contains(wordId)) {
-      _favoriteIds.remove(wordId);
-    } else {
-      _favoriteIds.add(wordId);
-    }
-    _applyFilters();
-    notifyListeners();
+    final result = await _wordRepo.toggleFavorite(wordId);
+    result.when(
+      success: (_) {
+        if (_favoriteIds.contains(wordId)) {
+          _favoriteIds.remove(wordId);
+        } else {
+          _favoriteIds.add(wordId);
+        }
+        _applyFilters();
+        notifyListeners();
+      },
+      failure: (error) => debugPrint('toggleFavorite failed: ${error.userMessage}'),
+    );
   }
 
   void setShowFavoritesOnly(bool value) {

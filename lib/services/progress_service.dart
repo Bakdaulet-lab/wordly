@@ -2,13 +2,16 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_word_progress_model.dart';
 import '../utils/sm2_algorithm.dart';
 import '../constants/app_constants.dart';
+import 'interfaces/i_progress_service.dart';
 
-class ProgressService {
+/// Supabase data-access layer for spaced-repetition word progress.
+class ProgressService implements IProgressService {
   final SupabaseClient _client;
 
   ProgressService(this._client);
 
   /// Fetch words due for review (next_review_date <= today).
+  @override
   Future<List<Map<String, dynamic>>> getWordsForReview(String userId, {int limit = 20}) async {
     final today = DateTime.now().toIso8601String().split('T')[0];
     final response = await _client
@@ -22,6 +25,7 @@ class ProgressService {
   }
 
   /// Get progress for a specific user-word pair.
+  @override
   Future<UserWordProgressModel?> getProgress(String userId, int wordId) async {
     final response = await _client
         .from('user_word_progress')
@@ -35,6 +39,7 @@ class ProgressService {
   }
 
   /// Create or update progress after a quiz/review answer.
+  @override
   Future<void> updateProgress({
     required String userId,
     required int wordId,
@@ -84,6 +89,7 @@ class ProgressService {
   }
 
   /// Count how many words are due for review today.
+  @override
   Future<int> countDueWords(String userId) async {
     final today = DateTime.now().toIso8601String().split('T')[0];
     final response = await _client

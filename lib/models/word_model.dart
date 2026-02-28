@@ -1,3 +1,4 @@
+/// A vocabulary word from the `words` table.
 class WordModel {
   final int id;
   final String englishWord;
@@ -7,7 +8,7 @@ class WordModel {
   final String category;
   final DateTime createdAt;
 
-  WordModel({
+  const WordModel({
     required this.id,
     required this.englishWord,
     required this.russianTranslation,
@@ -38,4 +39,36 @@ class WordModel {
       'category': category,
     };
   }
+
+  WordModel copyWith({
+    int? id,
+    String? englishWord,
+    String? russianTranslation,
+    String? exampleSentence,
+    int? difficultyLevel,
+    String? category,
+    DateTime? createdAt,
+  }) {
+    return WordModel(
+      id: id ?? this.id,
+      englishWord: englishWord ?? this.englishWord,
+      russianTranslation: russianTranslation ?? this.russianTranslation,
+      exampleSentence: exampleSentence ?? this.exampleSentence,
+      difficultyLevel: difficultyLevel ?? this.difficultyLevel,
+      category: category ?? this.category,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is WordModel && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
+
+  @override
+  String toString() =>
+      'WordModel(id: $id, englishWord: $englishWord, category: $category)';
 }

@@ -18,14 +18,17 @@ class StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return Semantics(
+      label: '$label: $value',
+      child: Card(
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
         child: Column(
           children: [
-            Icon(icon, color: iconColor ?? AppColors.primary, size: 28),
+            Icon(icon, color: iconColor ?? AppColors.primary, size: 28,
+                semanticLabel: label,),
             const SizedBox(height: 8),
             Text(
               value,
@@ -39,6 +42,7 @@ class StatCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

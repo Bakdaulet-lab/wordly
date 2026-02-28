@@ -28,7 +28,7 @@ class QuizRepository {
     required List<WordModel> allWords,
   }) {
     return _quizService.generateOptions(
-        correctWord: correctWord, allWords: allWords);
+        correctWord: correctWord, allWords: allWords,);
   }
 
   /// Pick random words for a quiz session (pure, no network).
@@ -57,7 +57,7 @@ class QuizRepository {
             wordId: wordId,
             quality: quality,
           ),
-        ]));
+        ]),);
   }
 
   /// Finish quiz — awards bonus XP and logs aggregate stats.
@@ -73,13 +73,13 @@ class QuizRepository {
       int xpToLog = totalXpEarned;
 
       if (score == totalQuestions && totalQuestions > 0) {
-        final bonus = AppConstants.xpPerfectQuizBonus;
+        const bonus = AppConstants.xpPerfectQuizBonus;
         xpToLog += bonus;
         futures.add(_xpService.awardXp(userId, bonus));
       }
 
       futures.add(
-          _statsService.incrementStat(userId, 'words_reviewed', totalQuestions));
+          _statsService.incrementStat(userId, 'words_reviewed', totalQuestions),);
       futures.add(_statsService.incrementStat(userId, 'xp_earned', xpToLog));
 
       await Future.wait(futures);

@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Persists and retrieves the user's daily XP goal via shared preferences.
 class DailyGoalService {
   static const String _goalKey = 'daily_xp_goal';
   static const int defaultGoal = 50;

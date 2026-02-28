@@ -12,6 +12,15 @@ import '../services/stats_service.dart';
 import '../services/tts_service.dart';
 import '../services/word_service.dart';
 import '../services/xp_service.dart';
+import '../services/local_database.dart';
+import '../services/connectivity_service.dart';
+import '../services/sync_service.dart';
+import '../services/notification_service.dart';
+import '../services/leaderboard_service.dart';
+import '../services/offline_cache_service.dart';
+import '../services/export_service.dart';
+
+import '../services/interfaces/interfaces.dart';
 
 import '../repositories/auth_repository.dart';
 import '../repositories/word_repository.dart';
@@ -20,6 +29,7 @@ import '../repositories/progress_repository.dart';
 import '../repositories/quiz_repository.dart';
 import '../repositories/stats_repository.dart';
 import '../repositories/achievement_repository.dart';
+import '../repositories/leaderboard_repository.dart';
 
 /// Global service locator instance.
 final GetIt sl = GetIt.instance;
@@ -60,6 +70,48 @@ void setupServiceLocator() {
   sl.registerLazySingleton<FavoritesService>(() => FavoritesService());
   sl.registerLazySingleton<TtsService>(() => TtsService());
 
+  // ── Interface aliases (for testability / DI by contract) ──────────
+  sl.registerLazySingleton<IAuthService>(() => sl<AuthService>());
+  sl.registerLazySingleton<IWordService>(() => sl<WordService>());
+  sl.registerLazySingleton<IProfileService>(() => sl<ProfileService>());
+  sl.registerLazySingleton<IProgressService>(() => sl<ProgressService>());
+  sl.registerLazySingleton<IQuizService>(() => sl<QuizService>());
+  sl.registerLazySingleton<IXpService>(() => sl<XpService>());
+  sl.registerLazySingleton<IStatsService>(() => sl<StatsService>());
+  sl.registerLazySingleton<IAchievementService>(
+    () => sl<AchievementService>(),
+  );
+
+  // ── Offline-first & sync services ─────────────────────────────────
+  sl.registerLazySingleton<LocalDatabase>(() => LocalDatabase());
+  sl.registerLazySingleton<ConnectivityService>(() => ConnectivityService());
+  sl.registerLazySingleton<SyncService>(
+    () => SyncService(
+      sl<LocalDatabase>(),
+      sl<ConnectivityService>(),
+      sl<SupabaseClient>(),
+    ),
+  );
+
+  // ── Notification service ──────────────────────────────────────────
+  sl.registerLazySingleton<NotificationService>(() => NotificationService());
+
+  // ── Offline cache service ─────────────────────────────────────────
+  sl.registerLazySingleton<OfflineCacheService>(
+    () => OfflineCacheService(
+      sl<LocalDatabase>(),
+      sl<ConnectivityService>(),
+    ),
+  );
+
+  // ── Export service ────────────────────────────────────────────────
+  sl.registerLazySingleton<ExportService>(() => ExportService());
+
+  // ── Leaderboard service ───────────────────────────────────────────
+  sl.registerLazySingleton<LeaderboardService>(
+    () => LeaderboardService(sl<SupabaseClient>()),
+  );
+
   // ── Repositories (business-logic layer) ───────────────────────────
   sl.registerLazySingleton<AuthRepository>(
     () => AuthRepository(sl<AuthService>()),
@@ -90,5 +142,8 @@ void setupServiceLocator() {
   );
   sl.registerLazySingleton<AchievementRepository>(
     () => AchievementRepository(sl<AchievementService>()),
+  );
+  sl.registerLazySingleton<LeaderboardRepository>(
+    () => LeaderboardRepository(sl<LeaderboardService>()),
   );
 }

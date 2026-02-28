@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
+import '../../constants/app_theme.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -51,8 +52,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   ];
 
   Future<void> _completeOnboarding() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('onboarding_complete', true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('onboarding_complete', true);
+    } catch (e) {
+      debugPrint('Failed to save onboarding state: $e');
+    }
     if (mounted) {
       context.go('/login');
     }
@@ -67,7 +72,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppTheme.background(context),
       body: SafeArea(
         child: Column(
           children: [
@@ -81,7 +86,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   child: Text(
                     'Skip',
                     style: AppTextStyles.bodyMedium.copyWith(
-                      color: AppColors.textHint,
+                      color: AppTheme.textHint(context),
                     ),
                   ),
                 ),
@@ -119,7 +124,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         Text(
                           page.title,
                           style: AppTextStyles.heading1.copyWith(
-                            color: AppColors.textPrimary,
+                            color: AppTheme.textPrimary(context),
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -154,8 +159,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         height: 8,
                         decoration: BoxDecoration(
                           color: isActive
-                              ? AppColors.primary
-                              : AppColors.textHint.withValues(alpha: 0.3),
+                              ? AppTheme.primary(context)
+                              : AppTheme.textHint(context).withValues(alpha: 0.3),
                           borderRadius: BorderRadius.circular(4),
                         ),
                       );
@@ -177,7 +182,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         }
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
+                        backgroundColor: AppTheme.primary(context),
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),

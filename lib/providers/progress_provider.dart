@@ -5,6 +5,7 @@ import '../models/word_model.dart';
 import '../di/service_locator.dart';
 import '../repositories/progress_repository.dart';
 
+/// Manages spaced-repetition progress and due-word counts.
 class ProgressProvider extends ChangeNotifier {
   final ProgressRepository _progressRepo = sl<ProgressRepository>();
 
@@ -80,7 +81,12 @@ class ProgressProvider extends ChangeNotifier {
     // Fire network calls in the background (non-blocking)
     unawaited(_progressRepo
         .answerReview(userId: userId, wordId: wordId, knewIt: knewIt)
-        .then((_) {}));
+        .then((result) {
+      result.when(
+        success: (_) {},
+        failure: (error) => debugPrint('answerReview failed: ${error.userMessage}'),
+      );
+    }));
   }
 
   void reset() {

@@ -3,7 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
+import '../../constants/app_theme.dart';
 import '../../providers/auth_provider.dart';
+import '../../utils/input_sanitizer.dart';
 import '../../utils/validators.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -30,7 +32,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final authProvider = context.read<AuthProvider>();
     final success = await authProvider.signIn(
-      email: _emailController.text.trim(),
+      email: InputSanitizer.sanitizeEmail(_emailController.text),
       password: _passwordController.text,
     );
 
@@ -53,7 +55,7 @@ class _LoginScreenState extends State<LoginScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              const Text(
                 'Enter your email and we\'ll send you a link to reset your password.',
                 style: AppTextStyles.bodyMedium,
               ),
@@ -76,7 +78,9 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             ElevatedButton(
               onPressed: () async {
-                final email = resetEmailController.text.trim();
+                final email = InputSanitizer.sanitizeEmail(
+                  resetEmailController.text,
+                );
                 if (email.isEmpty) return;
                 Navigator.of(dialogContext).pop();
 
@@ -110,7 +114,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppTheme.background(context),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -121,21 +125,21 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.school_rounded,
                     size: 80,
-                    color: AppColors.primary,
+                    color: AppTheme.primary(context),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     'Wordly',
                     style: AppTextStyles.heading1.copyWith(
-                      color: AppColors.primary,
+                      color: AppTheme.primary(context),
                     ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
-                  Text(
+                  const Text(
                     'Learn English words the smart way',
                     style: AppTextStyles.bodyMedium,
                     textAlign: TextAlign.center,
@@ -186,7 +190,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Text(
                         'Forgot Password?',
                         style: AppTextStyles.bodySmall.copyWith(
-                          color: AppColors.primary,
+                          color: AppTheme.primary(context),
                         ),
                       ),
                     ),
@@ -197,7 +201,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       return ElevatedButton(
                         onPressed: auth.isLoading ? null : _handleLogin,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
+                          backgroundColor: AppTheme.primary(context),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
@@ -223,7 +227,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Text(
                       "Don't have an account? Sign Up",
                       style: AppTextStyles.bodyMedium.copyWith(
-                        color: AppColors.primary,
+                        color: AppTheme.primary(context),
                       ),
                     ),
                   ),

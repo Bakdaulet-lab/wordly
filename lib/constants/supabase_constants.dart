@@ -1,7 +1,31 @@
+/// Supabase project credentials loaded from compile-time environment
+/// variables (`--dart-define`) so that secrets never appear in source code.
+///
+/// Build example:
+/// ```sh
+/// flutter run \
+///   --dart-define=SUPABASE_URL=https://<ref>.supabase.co \
+///   --dart-define=SUPABASE_ANON_KEY=<your-anon-key>
+/// ```
+///
+/// Or point to a file with all defines:
+/// ```sh
+/// flutter run --dart-define-from-file=.env
+/// ```
 class SupabaseConstants {
   SupabaseConstants._();
 
-  // TODO: Replace with your actual Supabase project credentials
-  static const String supabaseUrl = 'https://yyzsqdtkipldhwkfazxx.supabase.co';
-  static const String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl5enNxZHRraXBsZGh3a2Zhenh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyOTQ0MDMsImV4cCI6MjA4Nzg3MDQwM30.qRBOEM47gBWda6_qUuAEJokDvCnnZUPRNAzMSoXG0i8';
+  static const String supabaseUrl = String.fromEnvironment(
+    'SUPABASE_URL',
+    defaultValue: '',
+  );
+
+  static const String supabaseAnonKey = String.fromEnvironment(
+    'SUPABASE_ANON_KEY',
+    defaultValue: '',
+  );
+
+  /// Returns `true` when both required env vars have been provided.
+  static bool get isConfigured =>
+      supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
 }

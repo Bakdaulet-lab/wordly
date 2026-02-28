@@ -13,6 +13,9 @@ import '../screens/progress/review_screen.dart';
 import '../screens/achievements/achievements_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/onboarding/onboarding_screen.dart';
+import '../screens/leaderboard/leaderboard_screen.dart';
+import '../screens/settings/settings_screen.dart';
+import '../screens/analytics/analytics_screen.dart';
 
 Page<void> _fadeTransition(GoRouterState state, Widget child) {
   return CustomTransitionPage(
@@ -43,6 +46,21 @@ Page<void> _slideUpTransition(GoRouterState state, Widget child) {
   );
 }
 
+/// Deep-link aware router factory.
+///
+/// Supported deep links (custom scheme: `wordly://`):
+///   wordly:///home
+///   wordly:///words
+///   wordly:///words/:id
+///   wordly:///quiz
+///   wordly:///review
+///   wordly:///achievements
+///   wordly:///leaderboard
+///   wordly:///settings
+///   wordly:///analytics
+///
+/// On Android / iOS the scheme is configured in platform manifests.
+/// On web the path-based URLs work out of the box.
 GoRouter createRouter(BuildContext context, {required bool onboardingComplete}) {
   final authProvider = context.read<AuthProvider>();
 
@@ -121,6 +139,21 @@ GoRouter createRouter(BuildContext context, {required bool onboardingComplete}) 
         path: '/profile',
         pageBuilder: (context, state) =>
             _fadeTransition(state, const ProfileScreen()),
+      ),
+      GoRoute(
+        path: '/analytics',
+        pageBuilder: (context, state) =>
+            _slideUpTransition(state, const AnalyticsScreen()),
+      ),
+      GoRoute(
+        path: '/leaderboard',
+        pageBuilder: (context, state) =>
+            _fadeTransition(state, const LeaderboardScreen()),
+      ),
+      GoRoute(
+        path: '/settings',
+        pageBuilder: (context, state) =>
+            _slideUpTransition(state, const SettingsScreen()),
       ),
     ],
   );

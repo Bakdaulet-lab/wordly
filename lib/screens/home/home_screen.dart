@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
+import '../../constants/app_theme.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../../providers/word_list_provider.dart';
@@ -10,8 +12,11 @@ import '../../providers/stats_provider.dart';
 import '../../providers/progress_provider.dart';
 import '../../providers/achievement_provider.dart';
 import '../../providers/quiz_provider.dart';
+import '../../providers/connectivity_provider.dart';
+import '../../services/sync_service.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../words/word_list_screen.dart';
+import '../leaderboard/leaderboard_screen.dart';
 import '../profile/profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -60,11 +65,13 @@ class _HomeScreenState extends State<HomeScreen> {
       const DashboardScreen(),
       const WordListScreen(),
       _buildQuizTab(),
+      const LeaderboardScreen(),
       const ProfileScreen(),
     ];
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppTheme.background(context),
+      appBar: _buildConnectivityBar(context),
       body: IndexedStack(
         index: _currentIndex,
         children: screens,
@@ -77,32 +84,67 @@ class _HomeScreenState extends State<HomeScreen> {
           });
         },
         type: BottomNavigationBarType.fixed,
-        backgroundColor: AppColors.surface,
-        selectedItemColor: AppColors.primary,
-        unselectedItemColor: AppColors.textHint,
+        backgroundColor: AppTheme.surface(context),
+        selectedItemColor: AppTheme.primary(context),
+        unselectedItemColor: AppTheme.textHint(context),
         selectedLabelStyle: AppTextStyles.caption.copyWith(
-          color: AppColors.primary,
+          color: AppTheme.primary(context),
           fontWeight: FontWeight.w600,
         ),
         unselectedLabelStyle: AppTextStyles.caption,
-        items: const [
+        items: [
           BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard_rounded),
-            label: 'Dashboard',
+            icon: const Icon(Icons.dashboard_rounded),
+            label: AppLocalizations.of(context).translate('dashboard'),
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.menu_book_rounded),
-            label: 'Words',
+            icon: const Icon(Icons.menu_book_rounded),
+            label: AppLocalizations.of(context).translate('words'),
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.quiz_rounded),
-            label: 'Quiz',
+            icon: const Icon(Icons.quiz_rounded),
+            label: AppLocalizations.of(context).translate('quiz'),
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person_rounded),
-            label: 'Profile',
+            icon: const Icon(Icons.leaderboard_rounded),
+            label: AppLocalizations.of(context).translate('leaderboard'),
+          ),
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.person_rounded),
+            label: AppLocalizations.of(context).translate('profile'),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Shows an offline banner when the device is disconnected.
+  PreferredSizeWidget? _buildConnectivityBar(BuildContext context) {
+    final connProvider = context.watch<ConnectivityProvider>();
+    if (connProvider.isOnline &&
+        connProvider.syncStatus != SyncStatus.error) {
+      return null;
+    }
+
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(28),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        color: connProvider.isOnline
+            ? AppColors.errorRed
+            : AppColors.streakOrange,
+        child: Text(
+          connProvider.isOnline
+              ? 'Sync error — tap to retry'
+              : 'Offline — changes saved locally',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
       ),
     );
   }
@@ -124,11 +166,11 @@ class _HomeScreenState extends State<HomeScreen> {
               Text(
                 'Vocabulary Quiz',
                 style: AppTextStyles.heading1.copyWith(
-                  color: AppColors.primary,
+                  color: AppTheme.primary(context),
                 ),
               ),
               const SizedBox(height: 12),
-              Text(
+              const Text(
                 'Test your knowledge with a quick quiz session.\n'
                 'Answer questions about word translations and earn XP!',
                 style: AppTextStyles.bodyMedium,
@@ -140,7 +182,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: ElevatedButton(
                   onPressed: () => context.go('/quiz'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
+                    backgroundColor: AppTheme.primary(context),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
@@ -156,9 +198,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: OutlinedButton(
                   onPressed: () => _showDifficultyPicker(),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.primary,
+                    foregroundColor: AppTheme.primary(context),
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    side: const BorderSide(color: AppColors.primary),
+                    side: BorderSide(color: AppTheme.primary(context)),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -166,7 +208,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Text(
                     'Quiz by Difficulty',
                     style: AppTextStyles.button.copyWith(
-                      color: AppColors.primary,
+                      color: AppTheme.primary(context),
                     ),
                   ),
                 ),
@@ -189,7 +231,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.cardBackground,
+      backgroundColor: AppTheme.card(context),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -201,7 +243,7 @@ class _HomeScreenState extends State<HomeScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Choose Difficulty', style: AppTextStyles.heading3),
+                const Text('Choose Difficulty', style: AppTextStyles.heading3),
                 const SizedBox(height: 16),
                 ...difficulties.map((d) {
                   final level = d['level'] as int;
@@ -229,12 +271,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         decoration: BoxDecoration(
                           color: count >= 4
                               ? color.withValues(alpha: 0.1)
-                              : AppColors.textHint.withValues(alpha: 0.05),
+                              : AppTheme.textHint(context).withValues(alpha: 0.05),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: count >= 4
                                 ? color.withValues(alpha: 0.3)
-                                : AppColors.textHint.withValues(alpha: 0.2),
+                                : AppTheme.textHint(context).withValues(alpha: 0.2),
                           ),
                         ),
                         child: Row(
@@ -253,15 +295,15 @@ class _HomeScreenState extends State<HomeScreen> {
                               style: AppTextStyles.bodyLarge.copyWith(
                                 fontWeight: FontWeight.w600,
                                 color: count >= 4
-                                    ? AppColors.textPrimary
-                                    : AppColors.textHint,
+                                    ? AppTheme.textPrimary(context)
+                                    : AppTheme.textHint(context),
                               ),
                             ),
                             const Spacer(),
                             Text(
                               '$count words',
                               style: AppTextStyles.bodySmall.copyWith(
-                                color: AppColors.textHint,
+                                color: AppTheme.textHint(context),
                               ),
                             ),
                           ],

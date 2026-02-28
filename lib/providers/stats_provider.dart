@@ -4,12 +4,13 @@ import '../di/service_locator.dart';
 import '../repositories/stats_repository.dart';
 import '../services/daily_goal_service.dart';
 
+/// Exposes daily statistics, streaks, and goal progress to the UI.
 class StatsProvider extends ChangeNotifier {
   final StatsRepository _statsRepo = sl<StatsRepository>();
 
   DailyStatsModel? _todayStats;
   List<DailyStatsModel> _recentStats = [];
-  final int _currentStreak = 0;
+  int _currentStreak = 0;
   bool _isLoading = false;
   String? _errorMessage;
   int _dailyXpGoal = DailyGoalService.defaultGoal;
@@ -46,11 +47,19 @@ class StatsProvider extends ChangeNotifier {
     notifyListeners();
 
     // Update streak
-    await _statsRepo.updateStreak(userId);
+    final streakResult = await _statsRepo.updateStreak(userId);
+    streakResult.when(
+      success: (streak) => _currentStreak = streak,
+      failure: (error) => debugPrint('updateStreak failed: ${error.userMessage}'),
+    );
 
     // Load today's stats and daily goal in parallel
     final todayResult = await _statsRepo.getOrCreateTodayStats(userId);
-    _dailyXpGoal = await _statsRepo.getGoal();
+    final goalResult = await _statsRepo.getGoal();
+    goalResult.when(
+      success: (goal) => _dailyXpGoal = goal,
+      failure: (error) => debugPrint('getGoal failed: ${error.userMessage}'),
+    );
 
     todayResult.when(
       success: (stats) => _todayStats = stats,
@@ -84,7 +93,11 @@ class StatsProvider extends ChangeNotifier {
 
   Future<void> setDailyGoal(int goal) async {
     _dailyXpGoal = goal;
-    await _statsRepo.setGoal(goal);
+    final result = await _statsRepo.setGoal(goal);
+    result.when(
+      success: (_) {},
+      failure: (error) => debugPrint('setDailyGoal failed: ${error.userMessage}'),
+    );
     notifyListeners();
   }
 }

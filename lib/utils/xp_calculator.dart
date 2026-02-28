@@ -1,5 +1,6 @@
 import '../constants/app_constants.dart';
 
+/// Pure functions for calculating experience-point rewards.
 class XpCalculator {
   XpCalculator._();
 

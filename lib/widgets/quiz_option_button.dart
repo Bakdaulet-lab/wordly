@@ -40,7 +40,18 @@ class QuizOptionButton extends StatelessWidget {
       }
     }
 
-    return Padding(
+    final optionLetter = String.fromCharCode(65 + index);
+    final semanticState = isAnswered
+        ? (option.isCorrect
+            ? ', correct answer'
+            : (index == selectedIndex ? ', incorrect answer' : ''))
+        : '';
+
+    return Semantics(
+      button: !isAnswered,
+      label: 'Option $optionLetter: ${option.text}$semanticState',
+      enabled: !isAnswered,
+      child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
       child: Material(
         color: backgroundColor,
@@ -86,6 +97,7 @@ class QuizOptionButton extends StatelessWidget {
             ),
           ),
         ),
+      ),
       ),
     );
   }

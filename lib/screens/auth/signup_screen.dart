@@ -3,7 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
+import '../../constants/app_theme.dart';
 import '../../providers/auth_provider.dart';
+import '../../utils/input_sanitizer.dart';
 import '../../utils/validators.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -32,9 +34,9 @@ class _SignupScreenState extends State<SignupScreen> {
 
     final authProvider = context.read<AuthProvider>();
     final success = await authProvider.signUp(
-      email: _emailController.text.trim(),
+      email: InputSanitizer.sanitizeEmail(_emailController.text),
       password: _passwordController.text,
-      displayName: _nameController.text.trim(),
+      displayName: InputSanitizer.sanitizeDisplayName(_nameController.text),
     );
 
     if (success && mounted) {
@@ -45,7 +47,7 @@ class _SignupScreenState extends State<SignupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppTheme.background(context),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -56,21 +58,21 @@ class _SignupScreenState extends State<SignupScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.person_add_rounded,
                     size: 80,
-                    color: AppColors.primary,
+                    color: AppTheme.primary(context),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     'Create Account',
                     style: AppTextStyles.heading1.copyWith(
-                      color: AppColors.primary,
+                      color: AppTheme.primary(context),
                     ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
-                  Text(
+                  const Text(
                     'Start your vocabulary journey',
                     style: AppTextStyles.bodyMedium,
                     textAlign: TextAlign.center,
@@ -130,7 +132,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       return ElevatedButton(
                         onPressed: auth.isLoading ? null : _handleSignup,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
+                          backgroundColor: AppTheme.primary(context),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
@@ -156,7 +158,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     child: Text(
                       'Already have an account? Log In',
                       style: AppTextStyles.bodyMedium.copyWith(
-                        color: AppColors.primary,
+                        color: AppTheme.primary(context),
                       ),
                     ),
                   ),

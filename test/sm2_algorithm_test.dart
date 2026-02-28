@@ -80,8 +80,8 @@ void main() {
       );
       expect(result.nextReviewDate.isAfter(now) ||
           result.nextReviewDate.isAtSameMomentAs(
-              DateTime(now.year, now.month, now.day).add(const Duration(days: 1))),
-          isTrue);
+              DateTime(now.year, now.month, now.day).add(const Duration(days: 1)),),
+          isTrue,);
     });
   });
 }

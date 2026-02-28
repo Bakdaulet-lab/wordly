@@ -17,20 +17,20 @@ Future<Result<T>> apiGuard<T>(Future<T> Function() call) async {
       code: e.statusCode,
       type: AppExceptionType.auth,
       originalError: e,
-    ));
+    ),);
   } on PostgrestException catch (e) {
     return Result.failure(AppException(
       message: e.message,
       code: e.code,
       type: _postgrestType(e),
       originalError: e,
-    ));
+    ),);
   } on FormatException catch (e) {
     return Result.failure(AppException(
       message: 'Invalid data format: ${e.message}',
       type: AppExceptionType.validation,
       originalError: e,
-    ));
+    ),);
   } catch (e) {
     final msg = e.toString().toLowerCase();
     if (msg.contains('socketexception') ||
@@ -40,20 +40,20 @@ Future<Result<T>> apiGuard<T>(Future<T> Function() call) async {
         message: 'Network error',
         type: AppExceptionType.network,
         originalError: e,
-      ));
+      ),);
     }
     if (msg.contains('timeout') || msg.contains('timed out')) {
       return Result.failure(AppException(
         message: 'Request timed out',
         type: AppExceptionType.timeout,
         originalError: e,
-      ));
+      ),);
     }
     return Result.failure(AppException(
       message: e.toString(),
       type: AppExceptionType.unknown,
       originalError: e,
-    ));
+    ),);
   }
 }
 

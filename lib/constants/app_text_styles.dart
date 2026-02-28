@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
 
+/// Reusable text styles for headings, body, and UI labels.
 class AppTextStyles {
   AppTextStyles._();
 

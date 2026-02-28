@@ -6,8 +6,11 @@ class LoadingIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: CircularProgressIndicator(color: AppColors.primary),
+    return Center(
+      child: Semantics(
+        label: 'Loading content, please wait',
+        child: const CircularProgressIndicator(color: AppColors.primary),
+      ),
     );
   }
 }

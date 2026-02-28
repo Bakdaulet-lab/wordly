@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
+import '../../constants/app_theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/progress_provider.dart';
 
@@ -44,15 +45,15 @@ class _ReviewScreenState extends State<ReviewScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AppTheme.background(context),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: AppColors.textPrimary),
+          icon: Icon(Icons.close, color: AppTheme.textPrimary(context)),
           onPressed: () => context.go('/home'),
         ),
-        title: Text('Review', style: AppTextStyles.heading3),
+        title: const Text('Review', style: AppTextStyles.heading3),
         centerTitle: true,
       ),
       body: Consumer<ProgressProvider>(
@@ -138,7 +139,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            Text(
+            const Text(
               'No words are due for review right now.\nCome back later or try a quiz!',
               style: AppTextStyles.bodyMedium,
               textAlign: TextAlign.center,
@@ -261,7 +262,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                     horizontal: 24,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.cardBackground,
+                    color: AppTheme.card(context),
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
@@ -274,7 +275,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
+                      const Text(
                         'Do you know this word?',
                         style: AppTextStyles.bodyMedium,
                       ),
@@ -317,11 +318,11 @@ class _ReviewScreenState extends State<ReviewScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: Row(
+                      child: const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.close_rounded, size: 20),
-                          const SizedBox(width: 8),
+                          Icon(Icons.close_rounded, size: 20),
+                          SizedBox(width: 8),
                           Text(
                             "Didn't Know",
                             style: AppTextStyles.button,
@@ -344,11 +345,11 @@ class _ReviewScreenState extends State<ReviewScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: Row(
+                      child: const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.check_rounded, size: 20),
-                          const SizedBox(width: 8),
+                          Icon(Icons.check_rounded, size: 20),
+                          SizedBox(width: 8),
                           Text(
                             'I Knew It',
                             style: AppTextStyles.button,

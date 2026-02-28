@@ -25,7 +25,7 @@ class AuthRepository {
           email: email,
           password: password,
           displayName: displayName,
-        ));
+        ),);
   }
 
   Future<Result<AuthResponse>> signIn({
@@ -35,7 +35,7 @@ class AuthRepository {
     return apiGuard(() => _authService.signIn(
           email: email,
           password: password,
-        ));
+        ),);
   }
 
   Future<Result<void>> signOut() {

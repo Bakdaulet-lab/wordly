@@ -1,10 +1,11 @@
+/// Records that a user has unlocked a specific achievement.
 class UserAchievementModel {
   final int id;
   final String userId;
   final int achievementId;
   final DateTime unlockedAt;
 
-  UserAchievementModel({
+  const UserAchievementModel({
     required this.id,
     required this.userId,
     required this.achievementId,
@@ -26,4 +27,18 @@ class UserAchievementModel {
       'achievement_id': achievementId,
     };
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is UserAchievementModel &&
+          runtimeType == other.runtimeType &&
+          id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
+
+  @override
+  String toString() =>
+      'UserAchievementModel(id: $id, achievementId: $achievementId)';
 }
