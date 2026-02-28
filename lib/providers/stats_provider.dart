@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/daily_stats_model.dart';
 import '../services/stats_service.dart';
 import '../services/daily_goal_service.dart';
+import '../utils/error_helpers.dart';
 
 class StatsProvider extends ChangeNotifier {
   final StatsService _statsService = StatsService();
@@ -69,7 +70,7 @@ class StatsProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = friendlyError(e);
       _isLoading = false;
       notifyListeners();
     }

@@ -40,4 +40,14 @@ class AppConstants {
   static const int qualityWrong = 1;
   static const int qualityCorrect = 4;
   static const int qualityPerfect = 5;
+
+  /// SM-2 threshold: quality >= this value counts as "correct" for
+  /// spaced-repetition interval advancement (standard SM-2 boundary).
+  static const int sm2CorrectThreshold = 3;
+
+  // Text-to-Speech
+  static const String ttsLanguage = 'en-US';
+  static const double ttsSpeechRate = 0.45;
+  static const double ttsVolume = 1.0;
+  static const double ttsPitch = 1.0;
 }

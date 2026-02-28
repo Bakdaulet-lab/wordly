@@ -90,7 +90,10 @@ GoRouter createRouter(BuildContext context, {required bool onboardingComplete}) 
       GoRoute(
         path: '/words/:id',
         pageBuilder: (context, state) {
-          final wordId = int.parse(state.pathParameters['id']!);
+          final wordId = int.tryParse(state.pathParameters['id'] ?? '');
+          if (wordId == null) {
+            return _fadeTransition(state, const HomeScreen());
+          }
           return _slideUpTransition(state, WordDetailScreen(wordId: wordId));
         },
       ),

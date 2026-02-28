@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/achievement_model.dart';
 import '../models/user_achievement_model.dart';
 import '../services/achievement_service.dart';
+import '../utils/error_helpers.dart';
 
 class AchievementProvider extends ChangeNotifier {
   final AchievementService _achievementService = AchievementService();
@@ -32,7 +33,7 @@ class AchievementProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = friendlyError(e);
       _isLoading = false;
       notifyListeners();
     }

@@ -6,6 +6,7 @@ import '../services/progress_service.dart';
 import '../services/xp_service.dart';
 import '../services/stats_service.dart';
 import '../constants/app_constants.dart';
+import '../utils/error_helpers.dart';
 
 class ProgressProvider extends ChangeNotifier {
   final ProgressService _progressService = ProgressService();
@@ -47,7 +48,7 @@ class ProgressProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = friendlyError(e);
       _isLoading = false;
       notifyListeners();
     }
@@ -92,7 +93,7 @@ class ProgressProvider extends ChangeNotifier {
       _statsService.incrementStat(userId, 'words_reviewed', 1),
       _statsService.incrementStat(userId, statField, 1),
       _statsService.incrementStat(userId, 'xp_earned', xp),
-    ]));
+    ]).catchError((_) => <void>[]));
   }
 
   void reset() {

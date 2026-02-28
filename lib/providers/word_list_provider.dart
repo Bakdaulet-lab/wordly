@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../models/word_model.dart';
 import '../services/word_service.dart';
 import '../services/favorites_service.dart';
+import '../utils/error_helpers.dart';
 
 enum WordSortOption { defaultOrder, alphabetical, alphabeticalDesc, difficultyAsc, difficultyDesc }
 
@@ -49,7 +50,7 @@ class WordListProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = friendlyError(e);
       _isLoading = false;
       notifyListeners();
     }

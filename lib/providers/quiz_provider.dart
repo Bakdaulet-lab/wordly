@@ -136,7 +136,7 @@ class QuizProvider extends ChangeNotifier {
         wordId: wordId,
         quality: quality,
       ),
-    ]));
+    ]).catchError((_) => <void>[]));
   }
 
   void nextQuestion() {

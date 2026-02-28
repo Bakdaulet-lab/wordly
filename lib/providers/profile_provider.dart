@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/profile_model.dart';
 import '../services/profile_service.dart';
 import '../utils/xp_calculator.dart';
+import '../utils/error_helpers.dart';
 
 class ProfileProvider extends ChangeNotifier {
   final ProfileService _profileService = ProfileService();
@@ -33,7 +34,7 @@ class ProfileProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = friendlyError(e);
       _isLoading = false;
       notifyListeners();
     }
@@ -44,7 +45,7 @@ class ProfileProvider extends ChangeNotifier {
       _profile = await _profileService.getProfile(userId);
       notifyListeners();
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = friendlyError(e);
       notifyListeners();
     }
   }
@@ -56,7 +57,7 @@ class ProfileProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = friendlyError(e);
       notifyListeners();
       return false;
     }

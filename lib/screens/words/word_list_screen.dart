@@ -121,38 +121,42 @@ class _WordListScreenState extends State<WordListScreen> {
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: TextField(
-        controller: _searchController,
-        onChanged: (value) {
-          context.read<WordListProvider>().setSearchQuery(value);
-          setState(() {}); // Update clear icon visibility
+      child: ValueListenableBuilder<TextEditingValue>(
+        valueListenable: _searchController,
+        builder: (context, value, child) {
+          return TextField(
+            controller: _searchController,
+            onChanged: (value) {
+              context.read<WordListProvider>().setSearchQuery(value);
+            },
+            decoration: InputDecoration(
+              hintText: 'Search words...',
+              hintStyle: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.textHint,
+              ),
+              prefixIcon: const Icon(Icons.search, color: AppColors.textHint),
+              suffixIcon: value.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, color: AppColors.textHint),
+                      onPressed: () {
+                        _searchController.clear();
+                        context.read<WordListProvider>().setSearchQuery('');
+                      },
+                    )
+                  : null,
+              filled: true,
+              fillColor: AppColors.surface,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+            ),
+          );
         },
-        decoration: InputDecoration(
-          hintText: 'Search words...',
-          hintStyle: AppTextStyles.bodyMedium.copyWith(
-            color: AppColors.textHint,
-          ),
-          prefixIcon: const Icon(Icons.search, color: AppColors.textHint),
-          suffixIcon: _searchController.text.isNotEmpty
-              ? IconButton(
-                  icon: const Icon(Icons.clear, color: AppColors.textHint),
-                  onPressed: () {
-                    _searchController.clear();
-                    context.read<WordListProvider>().setSearchQuery('');
-                  },
-                )
-              : null,
-          filled: true,
-          fillColor: AppColors.surface,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 12,
-          ),
-        ),
       ),
     );
   }

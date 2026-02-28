@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_word_progress_model.dart';
 import '../utils/sm2_algorithm.dart';
+import '../constants/app_constants.dart';
 
 class ProgressService {
   final SupabaseClient _client = Supabase.instance.client;
@@ -44,7 +45,7 @@ class ProgressService {
       final result = calculateSM2(
         quality: quality,
         repetitionCount: 0,
-        easeFactor: 2.5,
+        easeFactor: AppConstants.sm2DefaultEaseFactor,
         intervalDays: 0,
       );
 
@@ -56,8 +57,8 @@ class ProgressService {
         'repetition_count': result.repetitionCount,
         'next_review_date': result.nextReviewDate.toIso8601String().split('T')[0],
         'last_review_date': DateTime.now().toIso8601String().split('T')[0],
-        'correct_count': quality >= 3 ? 1 : 0,
-        'incorrect_count': quality < 3 ? 1 : 0,
+        'correct_count': quality >= AppConstants.sm2CorrectThreshold ? 1 : 0,
+        'incorrect_count': quality < AppConstants.sm2CorrectThreshold ? 1 : 0,
       });
     } else {
       // Update existing progress
@@ -74,8 +75,8 @@ class ProgressService {
         'repetition_count': result.repetitionCount,
         'next_review_date': result.nextReviewDate.toIso8601String().split('T')[0],
         'last_review_date': DateTime.now().toIso8601String().split('T')[0],
-        'correct_count': existing.correctCount + (quality >= 3 ? 1 : 0),
-        'incorrect_count': existing.incorrectCount + (quality < 3 ? 1 : 0),
+        'correct_count': existing.correctCount + (quality >= AppConstants.sm2CorrectThreshold ? 1 : 0),
+        'incorrect_count': existing.incorrectCount + (quality < AppConstants.sm2CorrectThreshold ? 1 : 0),
       }).eq('id', existing.id);
     }
   }
