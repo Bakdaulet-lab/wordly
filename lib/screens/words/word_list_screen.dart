@@ -30,7 +30,13 @@ class _WordListScreenState extends State<WordListScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-            child: Text('Word Library', style: AppTextStyles.heading1),
+            child: Row(
+              children: [
+                Text('Word Library', style: AppTextStyles.heading1),
+                const Spacer(),
+                _buildSortButton(),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           _buildSearchBar(),
@@ -43,6 +49,58 @@ class _WordListScreenState extends State<WordListScreen> {
     );
   }
 
+  Widget _buildSortButton() {
+    return Consumer<WordListProvider>(
+      builder: (context, provider, child) {
+        return PopupMenuButton<WordSortOption>(
+          icon: const Icon(Icons.sort_rounded, color: AppColors.textHint),
+          tooltip: 'Sort words',
+          onSelected: (option) => provider.setSortOption(option),
+          itemBuilder: (context) => [
+            _sortMenuItem(WordSortOption.defaultOrder, 'Default', Icons.list_rounded, provider.sortOption),
+            _sortMenuItem(WordSortOption.alphabetical, 'A \u2192 Z', Icons.sort_by_alpha_rounded, provider.sortOption),
+            _sortMenuItem(WordSortOption.alphabeticalDesc, 'Z \u2192 A', Icons.sort_by_alpha_rounded, provider.sortOption),
+            _sortMenuItem(WordSortOption.difficultyAsc, 'Easiest first', Icons.arrow_upward_rounded, provider.sortOption),
+            _sortMenuItem(WordSortOption.difficultyDesc, 'Hardest first', Icons.arrow_downward_rounded, provider.sortOption),
+          ],
+        );
+      },
+    );
+  }
+
+  PopupMenuItem<WordSortOption> _sortMenuItem(
+    WordSortOption option,
+    String label,
+    IconData icon,
+    WordSortOption current,
+  ) {
+    final isSelected = current == option;
+    return PopupMenuItem(
+      value: option,
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 18,
+            color: isSelected ? AppColors.primary : AppColors.textHint,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: AppTextStyles.bodyMedium.copyWith(
+              color: isSelected ? AppColors.primary : AppColors.textPrimary,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+            ),
+          ),
+          if (isSelected) ...[
+            const Spacer(),
+            const Icon(Icons.check_rounded, size: 18, color: AppColors.primary),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -50,6 +108,7 @@ class _WordListScreenState extends State<WordListScreen> {
         controller: _searchController,
         onChanged: (value) {
           context.read<WordListProvider>().setSearchQuery(value);
+          setState(() {}); // Update clear icon visibility
         },
         decoration: InputDecoration(
           hintText: 'Search words...',
