@@ -6,7 +6,7 @@ import '../utils/date_helpers.dart';
 class StatsService {
   final SupabaseClient _client = Supabase.instance.client;
 
-  /// Get or create today's stats row. Uses upsert on (user_id, date).
+  /// Get or create today's stats row.
   Future<DailyStatsModel> getOrCreateTodayStats(String userId) async {
     final today = DateHelpers.today().toIso8601String().split('T')[0];
 
@@ -16,19 +16,21 @@ class StatsService {
         .select()
         .eq('user_id', userId)
         .eq('date', today)
-        .maybeSingle();
+        .limit(1);
 
-    if (existing != null) {
-      return DailyStatsModel.fromJson(existing);
+    final list = existing as List;
+    if (list.isNotEmpty) {
+      return DailyStatsModel.fromJson(list.first);
     }
 
     // Create new row
     final response = await _client.from('daily_stats').insert({
       'user_id': userId,
       'date': today,
-    }).select().single();
+    }).select();
 
-    return DailyStatsModel.fromJson(response);
+    final inserted = response as List;
+    return DailyStatsModel.fromJson(inserted.first);
   }
 
   /// Increment a numeric field in today's stats.
@@ -44,9 +46,10 @@ class StatsService {
         .select(field)
         .eq('user_id', userId)
         .eq('date', today)
-        .single();
+        .limit(1);
 
-    final currentValue = current[field] as int? ?? 0;
+    final list = current as List;
+    final currentValue = list.isNotEmpty ? (list.first[field] as int? ?? 0) : 0;
 
     await _client
         .from('daily_stats')
@@ -83,9 +86,12 @@ class StatsService {
         .from('profiles')
         .select()
         .eq('id', userId)
-        .single();
+        .limit(1);
 
-    final profile = ProfileModel.fromJson(profileResponse);
+    final list = profileResponse as List;
+    if (list.isEmpty) return;
+
+    final profile = ProfileModel.fromJson(list.first);
     final today = DateHelpers.today();
 
     int newStreak = profile.currentStreak;

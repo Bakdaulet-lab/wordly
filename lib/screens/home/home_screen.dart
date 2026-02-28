@@ -26,10 +26,15 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadData();
+    // Defer data loading to after the first frame to avoid
+    // "setState() called during build" from provider notifications.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadData();
+    });
   }
 
   Future<void> _loadData() async {
+    if (!mounted) return;
     final userId = context.read<AuthProvider>().user?.id;
     if (userId == null) return;
 

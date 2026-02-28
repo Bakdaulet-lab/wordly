@@ -6,13 +6,16 @@ class XpService {
 
   /// Award XP to a user. Updates total_xp and recalculates level.
   Future<void> awardXp(String userId, int amount) async {
-    final profileResponse = await _client
+    final response = await _client
         .from('profiles')
         .select('total_xp')
         .eq('id', userId)
-        .single();
+        .limit(1);
 
-    final currentXp = profileResponse['total_xp'] as int? ?? 0;
+    final list = response as List;
+    if (list.isEmpty) return;
+
+    final currentXp = list.first['total_xp'] as int? ?? 0;
     final newTotalXp = currentXp + amount;
     final newLevel = XpCalculator.levelFromXp(newTotalXp);
 

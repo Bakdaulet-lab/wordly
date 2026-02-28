@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../models/word_model.dart';
 import '../models/quiz_option_model.dart';
@@ -72,32 +74,33 @@ class QuizProvider extends ChangeNotifier {
 
     final option = _currentOptions[optionIndex];
     final isCorrect = option.isCorrect;
+    final wordId = currentWord!.id;
 
     if (isCorrect) {
       _score++;
-      final xp = AppConstants.xpCorrectAnswer;
-      _totalXpEarned += xp;
-      await _xpService.awardXp(userId, xp);
-      await _statsService.incrementStat(userId, 'correct_answers', 1);
+      _totalXpEarned += AppConstants.xpCorrectAnswer;
     } else {
-      final xp = AppConstants.xpIncorrectAnswer;
-      _totalXpEarned += xp;
-      await _xpService.awardXp(userId, xp);
-      await _statsService.incrementStat(userId, 'incorrect_answers', 1);
+      _totalXpEarned += AppConstants.xpIncorrectAnswer;
       _mistakes.add(currentWord!);
     }
 
-    // Update spaced repetition progress
-    final quality = isCorrect
-        ? AppConstants.qualityCorrect
-        : AppConstants.qualityWrong;
-    await _progressService.updateProgress(
-      userId: userId,
-      wordId: currentWord!.id,
-      quality: quality,
-    );
-
+    // Instant visual feedback — UI updates immediately
     notifyListeners();
+
+    // Fire network calls in parallel in the background (non-blocking)
+    final xp = isCorrect ? AppConstants.xpCorrectAnswer : AppConstants.xpIncorrectAnswer;
+    final statField = isCorrect ? 'correct_answers' : 'incorrect_answers';
+    final quality = isCorrect ? AppConstants.qualityCorrect : AppConstants.qualityWrong;
+
+    unawaited(Future.wait([
+      _xpService.awardXp(userId, xp),
+      _statsService.incrementStat(userId, statField, 1),
+      _progressService.updateProgress(
+        userId: userId,
+        wordId: wordId,
+        quality: quality,
+      ),
+    ]));
   }
 
   void nextQuestion() {
@@ -112,15 +115,19 @@ class QuizProvider extends ChangeNotifier {
   }
 
   Future<void> finishQuiz(String userId) async {
+    final futures = <Future>[];
+
     // Bonus for perfect quiz
     if (_score == _quizWords.length && _quizWords.isNotEmpty) {
       final bonus = AppConstants.xpPerfectQuizBonus;
       _totalXpEarned += bonus;
-      await _xpService.awardXp(userId, bonus);
+      futures.add(_xpService.awardXp(userId, bonus));
     }
 
-    await _statsService.incrementStat(userId, 'words_reviewed', _quizWords.length);
-    await _statsService.incrementStat(userId, 'xp_earned', _totalXpEarned);
+    futures.add(_statsService.incrementStat(userId, 'words_reviewed', _quizWords.length));
+    futures.add(_statsService.incrementStat(userId, 'xp_earned', _totalXpEarned));
+
+    await Future.wait(futures);
     notifyListeners();
   }
 

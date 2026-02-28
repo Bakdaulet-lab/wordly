@@ -17,6 +17,7 @@ class QuizScreen extends StatefulWidget {
 
 class _QuizScreenState extends State<QuizScreen> {
   bool _initialized = false;
+  bool _isAdvancing = false;
 
   @override
   void didChangeDependencies() {
@@ -37,19 +38,24 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
   Future<void> _handleAnswer(int optionIndex) async {
+    if (_isAdvancing) return;
+
     final userId = context.read<AuthProvider>().user?.id;
     if (userId == null) return;
 
     final quizProvider = context.read<QuizProvider>();
     await quizProvider.selectAnswer(optionIndex, userId);
 
-    // Wait for visual feedback then advance
+    // Prevent double-taps during the visual feedback delay
+    _isAdvancing = true;
+
     await Future.delayed(
       const Duration(milliseconds: AppConstants.quizAutoAdvanceDelayMs),
     );
 
     if (!mounted) return;
 
+    _isAdvancing = false;
     quizProvider.nextQuestion();
 
     if (quizProvider.isQuizComplete) {

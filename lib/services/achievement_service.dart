@@ -48,9 +48,9 @@ class AchievementService {
             .select('id')
             .eq('user_id', userId)
             .eq('achievement_id', achievement.id)
-            .maybeSingle();
+            .limit(1);
 
-        if (existing == null) {
+        if ((existing as List).isEmpty) {
           // Unlock it
           await _client.from('user_achievements').insert({
             'user_id': userId,

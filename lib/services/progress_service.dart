@@ -25,9 +25,10 @@ class ProgressService {
         .select()
         .eq('user_id', userId)
         .eq('word_id', wordId)
-        .maybeSingle();
-    if (response == null) return null;
-    return UserWordProgressModel.fromJson(response);
+        .limit(1);
+    final list = response as List;
+    if (list.isEmpty) return null;
+    return UserWordProgressModel.fromJson(list.first);
   }
 
   /// Create or update progress after a quiz/review answer.

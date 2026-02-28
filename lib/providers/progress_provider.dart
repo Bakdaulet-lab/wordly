@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../models/word_model.dart';
 import '../services/progress_service.dart';
@@ -66,30 +68,31 @@ class ProgressProvider extends ChangeNotifier {
   }) async {
     if (currentWord == null) return;
 
+    final wordId = currentWord!.id;
     final quality = knewIt
         ? AppConstants.qualityCorrect
         : AppConstants.qualityWrong;
-
-    await _progressService.updateProgress(
-      userId: userId,
-      wordId: currentWord!.id,
-      quality: quality,
-    );
-
     final xp = knewIt
         ? AppConstants.xpCorrectAnswer
         : AppConstants.xpIncorrectAnswer;
-    await _xpService.awardXp(userId, xp);
-    await _statsService.incrementStat(userId, 'words_reviewed', 1);
-    await _statsService.incrementStat(
-      userId,
-      knewIt ? 'correct_answers' : 'incorrect_answers',
-      1,
-    );
-    await _statsService.incrementStat(userId, 'xp_earned', xp);
+    final statField = knewIt ? 'correct_answers' : 'incorrect_answers';
 
+    // Advance UI immediately
     _currentIndex++;
     notifyListeners();
+
+    // Fire all network calls in parallel in the background
+    unawaited(Future.wait([
+      _progressService.updateProgress(
+        userId: userId,
+        wordId: wordId,
+        quality: quality,
+      ),
+      _xpService.awardXp(userId, xp),
+      _statsService.incrementStat(userId, 'words_reviewed', 1),
+      _statsService.incrementStat(userId, statField, 1),
+      _statsService.incrementStat(userId, 'xp_earned', xp),
+    ]));
   }
 
   void reset() {

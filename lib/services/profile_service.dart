@@ -9,9 +9,10 @@ class ProfileService {
         .from('profiles')
         .select()
         .eq('id', userId)
-        .maybeSingle();
-    if (response == null) return null;
-    return ProfileModel.fromJson(response);
+        .limit(1);
+    final list = response as List;
+    if (list.isEmpty) return null;
+    return ProfileModel.fromJson(list.first);
   }
 
   Future<void> updateProfile(String userId, Map<String, dynamic> data) async {
