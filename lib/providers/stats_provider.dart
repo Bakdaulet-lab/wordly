@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import '../models/daily_stats_model.dart';
-import '../services/stats_service.dart';
+import '../di/service_locator.dart';
+import '../repositories/stats_repository.dart';
 import '../services/daily_goal_service.dart';
-import '../utils/error_helpers.dart';
 
 class StatsProvider extends ChangeNotifier {
-  final StatsService _statsService = StatsService();
-  final DailyGoalService _dailyGoalService = DailyGoalService();
+  final StatsRepository _statsRepo = sl<StatsRepository>();
 
   DailyStatsModel? _todayStats;
   List<DailyStatsModel> _recentStats = [];
-  int _currentStreak = 0;
+  final int _currentStreak = 0;
   bool _isLoading = false;
   String? _errorMessage;
   int _dailyXpGoal = DailyGoalService.defaultGoal;
@@ -46,48 +45,46 @@ class StatsProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
-    try {
-      // Update streak
-      await _statsService.updateStreak(userId);
+    // Update streak
+    await _statsRepo.updateStreak(userId);
 
-      // Load today's stats and daily goal in parallel
-      final results = await Future.wait([
-        _statsService.getOrCreateTodayStats(userId),
-        _dailyGoalService.getGoal(),
-      ]);
-      _todayStats = results[0] as DailyStatsModel;
-      _dailyXpGoal = results[1] as int;
+    // Load today's stats and daily goal in parallel
+    final todayResult = await _statsRepo.getOrCreateTodayStats(userId);
+    _dailyXpGoal = await _statsRepo.getGoal();
 
-      // Load last 30 days
-      final now = DateTime.now();
-      final thirtyDaysAgo = now.subtract(const Duration(days: 30));
-      _recentStats = await _statsService.getStatsForRange(
-        userId,
-        thirtyDaysAgo,
-        now,
-      );
+    todayResult.when(
+      success: (stats) => _todayStats = stats,
+      failure: (error) => _errorMessage = error.userMessage,
+    );
 
-      _isLoading = false;
-      notifyListeners();
-    } catch (e) {
-      _errorMessage = friendlyError(e);
-      _isLoading = false;
-      notifyListeners();
-    }
+    // Load last 30 days
+    final now = DateTime.now();
+    final thirtyDaysAgo = now.subtract(const Duration(days: 30));
+    final rangeResult =
+        await _statsRepo.getStatsForRange(userId, thirtyDaysAgo, now);
+    rangeResult.when(
+      success: (stats) => _recentStats = stats,
+      failure: (error) => _errorMessage ??= error.userMessage,
+    );
+
+    _isLoading = false;
+    notifyListeners();
   }
 
   Future<void> refreshTodayStats(String userId) async {
-    try {
-      _todayStats = await _statsService.getOrCreateTodayStats(userId);
-      notifyListeners();
-    } catch (e) {
-      // Silent fail for refresh
-    }
+    final result = await _statsRepo.getOrCreateTodayStats(userId);
+    result.when(
+      success: (stats) {
+        _todayStats = stats;
+        notifyListeners();
+      },
+      failure: (_) {}, // Silent fail for refresh
+    );
   }
 
   Future<void> setDailyGoal(int goal) async {
     _dailyXpGoal = goal;
-    await _dailyGoalService.setGoal(goal);
+    await _statsRepo.setGoal(goal);
     notifyListeners();
   }
 }

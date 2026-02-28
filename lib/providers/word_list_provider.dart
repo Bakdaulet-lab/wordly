@@ -2,15 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import '../models/word_model.dart';
-import '../services/word_service.dart';
-import '../services/favorites_service.dart';
-import '../utils/error_helpers.dart';
+import '../di/service_locator.dart';
+import '../repositories/word_repository.dart';
 
 enum WordSortOption { defaultOrder, alphabetical, alphabeticalDesc, difficultyAsc, difficultyDesc }
 
 class WordListProvider extends ChangeNotifier {
-  final WordService _wordService = WordService();
-  final FavoritesService _favoritesService = FavoritesService();
+  final WordRepository _wordRepo = sl<WordRepository>();
 
   List<WordModel> _allWords = [];
   List<WordModel> _filteredWords = [];
@@ -42,18 +40,22 @@ class WordListProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
-    try {
-      _allWords = await _wordService.fetchAllWords();
-      _categories = await _wordService.fetchCategories();
-      _favoriteIds = await _favoritesService.getFavorites();
-      _applyFilters();
-      _isLoading = false;
-      notifyListeners();
-    } catch (e) {
-      _errorMessage = friendlyError(e);
-      _isLoading = false;
-      notifyListeners();
-    }
+    final wordsResult = await _wordRepo.fetchAllWords();
+    final categoriesResult = await _wordRepo.fetchCategories();
+    _favoriteIds = await _wordRepo.getFavorites();
+
+    wordsResult.when(
+      success: (words) => _allWords = words,
+      failure: (error) => _errorMessage = error.userMessage,
+    );
+    categoriesResult.when(
+      success: (cats) => _categories = cats,
+      failure: (error) => _errorMessage ??= error.userMessage,
+    );
+
+    _applyFilters();
+    _isLoading = false;
+    notifyListeners();
   }
 
   void setCategory(String? category) {
@@ -78,7 +80,7 @@ class WordListProvider extends ChangeNotifier {
   }
 
   Future<void> toggleFavorite(int wordId) async {
-    await _favoritesService.toggleFavorite(wordId);
+    await _wordRepo.toggleFavorite(wordId);
     if (_favoriteIds.contains(wordId)) {
       _favoriteIds.remove(wordId);
     } else {

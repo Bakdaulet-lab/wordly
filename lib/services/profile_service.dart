@@ -2,7 +2,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/profile_model.dart';
 
 class ProfileService {
-  final SupabaseClient _client = Supabase.instance.client;
+  final SupabaseClient _client;
+
+  ProfileService(this._client);
 
   Future<ProfileModel?> getProfile(String userId) async {
     final response = await _client

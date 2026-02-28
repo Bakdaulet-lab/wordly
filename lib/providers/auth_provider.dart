@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../services/auth_service.dart';
+import '../di/service_locator.dart';
+import '../repositories/auth_repository.dart';
 
 class AuthProvider extends ChangeNotifier {
-  final AuthService _authService = AuthService();
+  final AuthRepository _authRepo = sl<AuthRepository>();
 
   User? _user;
   bool _isLoading = false;
@@ -17,37 +18,11 @@ class AuthProvider extends ChangeNotifier {
   bool get isAuthenticated => _user != null;
 
   AuthProvider() {
-    _user = _authService.currentUser;
-    _authSubscription = _authService.authStateChanges.listen((authState) {
+    _user = _authRepo.currentUser;
+    _authSubscription = _authRepo.authStateChanges.listen((authState) {
       _user = authState.session?.user;
       notifyListeners();
     });
-  }
-
-  String _friendlyError(Object e) {
-    final msg = e.toString().toLowerCase();
-    if (msg.contains('invalid login credentials') || msg.contains('invalid_grant')) {
-      return 'Wrong email or password. Please try again.';
-    }
-    if (msg.contains('email not confirmed')) {
-      return 'Please check your email and confirm your account.';
-    }
-    if (msg.contains('user already registered') || msg.contains('already been registered')) {
-      return 'An account with this email already exists. Try logging in.';
-    }
-    if (msg.contains('password') && msg.contains('length')) {
-      return 'Password must be at least 6 characters.';
-    }
-    if (msg.contains('invalid email') || msg.contains('unable to validate email')) {
-      return 'Please enter a valid email address.';
-    }
-    if (msg.contains('network') || msg.contains('socketexception') || msg.contains('connection')) {
-      return 'No internet connection. Please check your network.';
-    }
-    if (msg.contains('too many requests') || msg.contains('rate limit')) {
-      return 'Too many attempts. Please wait a moment and try again.';
-    }
-    return 'Something went wrong. Please try again.';
   }
 
   Future<bool> signUp({
@@ -59,22 +34,26 @@ class AuthProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
-    try {
-      final response = await _authService.signUp(
-        email: email,
-        password: password,
-        displayName: displayName,
-      );
-      _user = response.user;
-      _isLoading = false;
-      notifyListeners();
-      return _user != null;
-    } catch (e) {
-      _errorMessage = _friendlyError(e);
-      _isLoading = false;
-      notifyListeners();
-      return false;
-    }
+    final result = await _authRepo.signUp(
+      email: email,
+      password: password,
+      displayName: displayName,
+    );
+
+    _isLoading = false;
+
+    return result.when(
+      success: (response) {
+        _user = response.user;
+        notifyListeners();
+        return _user != null;
+      },
+      failure: (error) {
+        _errorMessage = error.userMessage;
+        notifyListeners();
+        return false;
+      },
+    );
   }
 
   Future<bool> signIn({
@@ -85,33 +64,36 @@ class AuthProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
-    try {
-      final response = await _authService.signIn(
-        email: email,
-        password: password,
-      );
-      _user = response.user;
-      _isLoading = false;
-      notifyListeners();
-      return _user != null;
-    } catch (e) {
-      _errorMessage = _friendlyError(e);
-      _isLoading = false;
-      notifyListeners();
-      return false;
-    }
+    final result = await _authRepo.signIn(
+      email: email,
+      password: password,
+    );
+
+    _isLoading = false;
+
+    return result.when(
+      success: (response) {
+        _user = response.user;
+        notifyListeners();
+        return _user != null;
+      },
+      failure: (error) {
+        _errorMessage = error.userMessage;
+        notifyListeners();
+        return false;
+      },
+    );
   }
 
   Future<void> signOut() async {
     _isLoading = true;
     notifyListeners();
 
-    try {
-      await _authService.signOut();
-      _user = null;
-    } catch (e) {
-      _errorMessage = _friendlyError(e);
-    }
+    final result = await _authRepo.signOut();
+    result.when(
+      success: (_) => _user = null,
+      failure: (error) => _errorMessage = error.userMessage,
+    );
 
     _isLoading = false;
     notifyListeners();
@@ -122,17 +104,21 @@ class AuthProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
-    try {
-      await _authService.resetPassword(email);
-      _isLoading = false;
-      notifyListeners();
-      return true;
-    } catch (e) {
-      _errorMessage = _friendlyError(e);
-      _isLoading = false;
-      notifyListeners();
-      return false;
-    }
+    final result = await _authRepo.resetPassword(email);
+
+    _isLoading = false;
+
+    return result.when(
+      success: (_) {
+        notifyListeners();
+        return true;
+      },
+      failure: (error) {
+        _errorMessage = error.userMessage;
+        notifyListeners();
+        return false;
+      },
+    );
   }
 
   void clearError() {

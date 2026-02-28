@@ -4,7 +4,9 @@ import '../utils/sm2_algorithm.dart';
 import '../constants/app_constants.dart';
 
 class ProgressService {
-  final SupabaseClient _client = Supabase.instance.client;
+  final SupabaseClient _client;
+
+  ProgressService(this._client);
 
   /// Fetch words due for review (next_review_date <= today).
   Future<List<Map<String, dynamic>>> getWordsForReview(String userId, {int limit = 20}) async {

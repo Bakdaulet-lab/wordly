@@ -4,16 +4,11 @@ import 'package:flutter/material.dart';
 import '../models/word_model.dart';
 import '../models/quiz_option_model.dart';
 import '../constants/app_constants.dart';
-import '../services/quiz_service.dart';
-import '../services/progress_service.dart';
-import '../services/xp_service.dart';
-import '../services/stats_service.dart';
+import '../di/service_locator.dart';
+import '../repositories/quiz_repository.dart';
 
 class QuizProvider extends ChangeNotifier {
-  final QuizService _quizService = QuizService();
-  final ProgressService _progressService = ProgressService();
-  final XpService _xpService = XpService();
-  final StatsService _statsService = StatsService();
+  final QuizRepository _quizRepo = sl<QuizRepository>();
 
   List<WordModel> _quizWords = [];
   List<WordModel> _allWords = [];
@@ -23,7 +18,7 @@ class QuizProvider extends ChangeNotifier {
   List<QuizOptionModel> _currentOptions = [];
   int? _selectedOptionIndex;
   bool _isAnswered = false;
-  bool _isLoading = false;
+  final bool _isLoading = false;
   List<WordModel> _mistakes = [];
   int _timeRemaining = AppConstants.quizTimerSeconds;
   Timer? _questionTimer;
@@ -48,7 +43,7 @@ class QuizProvider extends ChangeNotifier {
 
   void startQuiz(List<WordModel> allWords) {
     _allWords = allWords;
-    _quizWords = _quizService.pickQuizWords(
+    _quizWords = _quizRepo.pickQuizWords(
       allWords,
       count: AppConstants.quizQuestionsPerSession,
     );
@@ -66,7 +61,7 @@ class QuizProvider extends ChangeNotifier {
 
   void _generateOptions() {
     if (currentWord != null) {
-      _currentOptions = _quizService.generateOptions(
+      _currentOptions = _quizRepo.generateOptions(
         correctWord: currentWord!,
         allWords: _allWords,
       );
@@ -120,23 +115,13 @@ class QuizProvider extends ChangeNotifier {
       _mistakes.add(currentWord!);
     }
 
-    // Instant visual feedback — UI updates immediately
+    // Instant visual feedback
     notifyListeners();
 
-    // Fire network calls in parallel in the background (non-blocking)
-    final xp = isCorrect ? AppConstants.xpCorrectAnswer : AppConstants.xpIncorrectAnswer;
-    final statField = isCorrect ? 'correct_answers' : 'incorrect_answers';
-    final quality = isCorrect ? AppConstants.qualityCorrect : AppConstants.qualityWrong;
-
-    unawaited(Future.wait([
-      _xpService.awardXp(userId, xp),
-      _statsService.incrementStat(userId, statField, 1),
-      _progressService.updateProgress(
-        userId: userId,
-        wordId: wordId,
-        quality: quality,
-      ),
-    ]).catchError((_) => <void>[]));
+    // Fire network calls in the background (non-blocking)
+    unawaited(_quizRepo
+        .submitAnswer(userId: userId, wordId: wordId, isCorrect: isCorrect)
+        .then((_) {}));
   }
 
   void nextQuestion() {
@@ -155,19 +140,18 @@ class QuizProvider extends ChangeNotifier {
   }
 
   Future<void> finishQuiz(String userId) async {
-    final futures = <Future>[];
-
     // Bonus for perfect quiz
     if (_score == _quizWords.length && _quizWords.isNotEmpty) {
-      final bonus = AppConstants.xpPerfectQuizBonus;
-      _totalXpEarned += bonus;
-      futures.add(_xpService.awardXp(userId, bonus));
+      _totalXpEarned += AppConstants.xpPerfectQuizBonus;
     }
 
-    futures.add(_statsService.incrementStat(userId, 'words_reviewed', _quizWords.length));
-    futures.add(_statsService.incrementStat(userId, 'xp_earned', _totalXpEarned));
+    await _quizRepo.finishQuiz(
+      userId: userId,
+      score: _score,
+      totalQuestions: _quizWords.length,
+      totalXpEarned: _totalXpEarned,
+    );
 
-    await Future.wait(futures);
     notifyListeners();
   }
 

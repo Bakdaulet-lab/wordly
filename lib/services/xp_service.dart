@@ -2,7 +2,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/xp_calculator.dart';
 
 class XpService {
-  final SupabaseClient _client = Supabase.instance.client;
+  final SupabaseClient _client;
+
+  XpService(this._client);
 
   /// Award XP to a user. Updates total_xp and recalculates level.
   Future<void> awardXp(String userId, int amount) async {

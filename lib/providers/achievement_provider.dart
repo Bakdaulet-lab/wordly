@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import '../models/achievement_model.dart';
 import '../models/user_achievement_model.dart';
-import '../services/achievement_service.dart';
-import '../utils/error_helpers.dart';
+import '../di/service_locator.dart';
+import '../repositories/achievement_repository.dart';
 
 class AchievementProvider extends ChangeNotifier {
-  final AchievementService _achievementService = AchievementService();
+  final AchievementRepository _achievementRepo = sl<AchievementRepository>();
 
   List<AchievementModel> _allAchievements = [];
   List<UserAchievementModel> _userAchievements = [];
@@ -27,16 +27,21 @@ class AchievementProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
-    try {
-      _allAchievements = await _achievementService.fetchAllAchievements();
-      _userAchievements = await _achievementService.fetchUserAchievements(userId);
-      _isLoading = false;
-      notifyListeners();
-    } catch (e) {
-      _errorMessage = friendlyError(e);
-      _isLoading = false;
-      notifyListeners();
-    }
+    final allResult = await _achievementRepo.fetchAllAchievements();
+    final userResult = await _achievementRepo.fetchUserAchievements(userId);
+
+    _isLoading = false;
+
+    allResult.when(
+      success: (achievements) => _allAchievements = achievements,
+      failure: (error) => _errorMessage = error.userMessage,
+    );
+    userResult.when(
+      success: (achievements) => _userAchievements = achievements,
+      failure: (error) => _errorMessage ??= error.userMessage,
+    );
+
+    notifyListeners();
   }
 
   /// Check and potentially unlock an achievement. Returns the achievement if newly unlocked.
@@ -45,20 +50,28 @@ class AchievementProvider extends ChangeNotifier {
     required String conditionType,
     required int currentValue,
   }) async {
-    try {
-      final unlocked = await _achievementService.checkAndUnlock(
-        userId: userId,
-        conditionType: conditionType,
-        currentValue: currentValue,
-      );
-      if (unlocked != null) {
-        // Refresh user achievements
-        _userAchievements = await _achievementService.fetchUserAchievements(userId);
-        notifyListeners();
-      }
-      return unlocked;
-    } catch (e) {
-      return null;
-    }
+    final result = await _achievementRepo.checkAndUnlock(
+      userId: userId,
+      conditionType: conditionType,
+      currentValue: currentValue,
+    );
+
+    return result.when(
+      success: (unlocked) async {
+        if (unlocked != null) {
+          final userResult =
+              await _achievementRepo.fetchUserAchievements(userId);
+          userResult.when(
+            success: (achievements) {
+              _userAchievements = achievements;
+              notifyListeners();
+            },
+            failure: (_) {},
+          );
+        }
+        return unlocked;
+      },
+      failure: (_) => null,
+    );
   }
 }

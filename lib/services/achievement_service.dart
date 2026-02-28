@@ -3,7 +3,9 @@ import '../models/achievement_model.dart';
 import '../models/user_achievement_model.dart';
 
 class AchievementService {
-  final SupabaseClient _client = Supabase.instance.client;
+  final SupabaseClient _client;
+
+  AchievementService(this._client);
 
   Future<List<AchievementModel>> fetchAllAchievements() async {
     final response = await _client

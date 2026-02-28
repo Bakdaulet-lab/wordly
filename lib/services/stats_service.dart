@@ -4,7 +4,9 @@ import '../models/profile_model.dart';
 import '../utils/date_helpers.dart';
 
 class StatsService {
-  final SupabaseClient _client = Supabase.instance.client;
+  final SupabaseClient _client;
+
+  StatsService(this._client);
 
   /// Get or create today's stats row.
   Future<DailyStatsModel> getOrCreateTodayStats(String userId) async {

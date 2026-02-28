@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import '../models/profile_model.dart';
-import '../services/profile_service.dart';
+import '../di/service_locator.dart';
+import '../repositories/profile_repository.dart';
 import '../utils/xp_calculator.dart';
-import '../utils/error_helpers.dart';
 
 class ProfileProvider extends ChangeNotifier {
-  final ProfileService _profileService = ProfileService();
+  final ProfileRepository _profileRepo = sl<ProfileRepository>();
 
   ProfileModel? _profile;
   bool _isLoading = false;
@@ -29,38 +29,50 @@ class ProfileProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
-    try {
-      _profile = await _profileService.getProfile(userId);
-      _isLoading = false;
-      notifyListeners();
-    } catch (e) {
-      _errorMessage = friendlyError(e);
-      _isLoading = false;
-      notifyListeners();
-    }
+    final result = await _profileRepo.getProfile(userId);
+    _isLoading = false;
+
+    result.when(
+      success: (profile) {
+        _profile = profile;
+        notifyListeners();
+      },
+      failure: (error) {
+        _errorMessage = error.userMessage;
+        notifyListeners();
+      },
+    );
   }
 
   Future<void> refreshProfile(String userId) async {
-    try {
-      _profile = await _profileService.getProfile(userId);
-      notifyListeners();
-    } catch (e) {
-      _errorMessage = friendlyError(e);
-      notifyListeners();
-    }
+    final result = await _profileRepo.getProfile(userId);
+    result.when(
+      success: (profile) {
+        _profile = profile;
+        notifyListeners();
+      },
+      failure: (error) {
+        _errorMessage = error.userMessage;
+        notifyListeners();
+      },
+    );
   }
 
   Future<bool> updateDisplayName(String userId, String newName) async {
-    try {
-      await _profileService.updateProfile(userId, {'display_name': newName});
-      _profile = _profile?.copyWith(displayName: newName);
-      notifyListeners();
-      return true;
-    } catch (e) {
-      _errorMessage = friendlyError(e);
-      notifyListeners();
-      return false;
-    }
+    final result =
+        await _profileRepo.updateProfile(userId, {'display_name': newName});
+    return result.when(
+      success: (_) {
+        _profile = _profile?.copyWith(displayName: newName);
+        notifyListeners();
+        return true;
+      },
+      failure: (error) {
+        _errorMessage = error.userMessage;
+        notifyListeners();
+        return false;
+      },
+    );
   }
 
   void clear() {

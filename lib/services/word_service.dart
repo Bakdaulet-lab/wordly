@@ -2,7 +2,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/word_model.dart';
 
 class WordService {
-  final SupabaseClient _client = Supabase.instance.client;
+  final SupabaseClient _client;
+
+  WordService(this._client);
 
   Future<List<WordModel>> fetchAllWords() async {
     final response = await _client

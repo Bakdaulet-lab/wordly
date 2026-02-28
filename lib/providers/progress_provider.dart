@@ -2,16 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import '../models/word_model.dart';
-import '../services/progress_service.dart';
-import '../services/xp_service.dart';
-import '../services/stats_service.dart';
-import '../constants/app_constants.dart';
-import '../utils/error_helpers.dart';
+import '../di/service_locator.dart';
+import '../repositories/progress_repository.dart';
 
 class ProgressProvider extends ChangeNotifier {
-  final ProgressService _progressService = ProgressService();
-  final XpService _xpService = XpService();
-  final StatsService _statsService = StatsService();
+  final ProgressRepository _progressRepo = sl<ProgressRepository>();
 
   List<Map<String, dynamic>> _reviewItems = [];
   int _currentIndex = 0;
@@ -41,26 +36,33 @@ class ProgressProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
-    try {
-      _reviewItems = await _progressService.getWordsForReview(userId);
-      _dueCount = _reviewItems.length;
-      _currentIndex = 0;
-      _isLoading = false;
-      notifyListeners();
-    } catch (e) {
-      _errorMessage = friendlyError(e);
-      _isLoading = false;
-      notifyListeners();
-    }
+    final result = await _progressRepo.getWordsForReview(userId);
+
+    _isLoading = false;
+
+    result.when(
+      success: (items) {
+        _reviewItems = items;
+        _dueCount = items.length;
+        _currentIndex = 0;
+        notifyListeners();
+      },
+      failure: (error) {
+        _errorMessage = error.userMessage;
+        notifyListeners();
+      },
+    );
   }
 
   Future<void> refreshDueCount(String userId) async {
-    try {
-      _dueCount = await _progressService.countDueWords(userId);
-      notifyListeners();
-    } catch (e) {
-      // Silent fail for count refresh
-    }
+    final result = await _progressRepo.countDueWords(userId);
+    result.when(
+      success: (count) {
+        _dueCount = count;
+        notifyListeners();
+      },
+      failure: (_) {}, // Silent fail for count refresh
+    );
   }
 
   Future<void> answerReview({
@@ -70,30 +72,15 @@ class ProgressProvider extends ChangeNotifier {
     if (currentWord == null) return;
 
     final wordId = currentWord!.id;
-    final quality = knewIt
-        ? AppConstants.qualityCorrect
-        : AppConstants.qualityWrong;
-    final xp = knewIt
-        ? AppConstants.xpCorrectAnswer
-        : AppConstants.xpIncorrectAnswer;
-    final statField = knewIt ? 'correct_answers' : 'incorrect_answers';
 
     // Advance UI immediately
     _currentIndex++;
     notifyListeners();
 
-    // Fire all network calls in parallel in the background
-    unawaited(Future.wait([
-      _progressService.updateProgress(
-        userId: userId,
-        wordId: wordId,
-        quality: quality,
-      ),
-      _xpService.awardXp(userId, xp),
-      _statsService.incrementStat(userId, 'words_reviewed', 1),
-      _statsService.incrementStat(userId, statField, 1),
-      _statsService.incrementStat(userId, 'xp_earned', xp),
-    ]).catchError((_) => <void>[]));
+    // Fire network calls in the background (non-blocking)
+    unawaited(_progressRepo
+        .answerReview(userId: userId, wordId: wordId, knewIt: knewIt)
+        .then((_) {}));
   }
 
   void reset() {

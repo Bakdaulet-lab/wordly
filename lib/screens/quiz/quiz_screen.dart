@@ -12,9 +12,8 @@ import '../../providers/word_list_provider.dart';
 import '../../providers/achievement_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../../models/achievement_model.dart';
-import '../../services/xp_service.dart';
-import '../../services/stats_service.dart';
-import '../../services/progress_service.dart';
+import '../../di/service_locator.dart';
+import '../../repositories/quiz_repository.dart';
 import '../../services/tts_service.dart';
 
 class QuizScreen extends StatefulWidget {
@@ -88,15 +87,9 @@ class _QuizScreenState extends State<QuizScreen> {
     // Fire background network calls for the timed-out answer
     final wordId = quizProvider.currentWord?.id;
     if (wordId != null) {
-      unawaited(Future.wait([
-        XpService().awardXp(userId, AppConstants.xpIncorrectAnswer),
-        StatsService().incrementStat(userId, 'incorrect_answers', 1),
-        ProgressService().updateProgress(
-          userId: userId,
-          wordId: wordId,
-          quality: AppConstants.qualityWrong,
-        ),
-      ]));
+      unawaited(sl<QuizRepository>()
+          .submitAnswer(userId: userId, wordId: wordId, isCorrect: false)
+          .then((_) {}));
     }
 
     _advanceOrFinish(quizProvider, userId);
