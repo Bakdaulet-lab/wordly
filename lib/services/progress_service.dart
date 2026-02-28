@@ -1,0 +1,92 @@
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../models/user_word_progress_model.dart';
+import '../utils/sm2_algorithm.dart';
+
+class ProgressService {
+  final SupabaseClient _client = Supabase.instance.client;
+
+  /// Fetch words due for review (next_review_date <= today).
+  Future<List<Map<String, dynamic>>> getWordsForReview(String userId, {int limit = 20}) async {
+    final today = DateTime.now().toIso8601String().split('T')[0];
+    final response = await _client
+        .from('user_word_progress')
+        .select('*, words(*)')
+        .eq('user_id', userId)
+        .lte('next_review_date', today)
+        .order('next_review_date', ascending: true)
+        .limit(limit);
+    return List<Map<String, dynamic>>.from(response);
+  }
+
+  /// Get progress for a specific user-word pair.
+  Future<UserWordProgressModel?> getProgress(String userId, int wordId) async {
+    final response = await _client
+        .from('user_word_progress')
+        .select()
+        .eq('user_id', userId)
+        .eq('word_id', wordId)
+        .maybeSingle();
+    if (response == null) return null;
+    return UserWordProgressModel.fromJson(response);
+  }
+
+  /// Create or update progress after a quiz/review answer.
+  Future<void> updateProgress({
+    required String userId,
+    required int wordId,
+    required int quality,
+  }) async {
+    final existing = await getProgress(userId, wordId);
+
+    if (existing == null) {
+      // First time seeing this word
+      final result = calculateSM2(
+        quality: quality,
+        repetitionCount: 0,
+        easeFactor: 2.5,
+        intervalDays: 0,
+      );
+
+      await _client.from('user_word_progress').insert({
+        'user_id': userId,
+        'word_id': wordId,
+        'ease_factor': result.easeFactor,
+        'interval_days': result.intervalDays,
+        'repetition_count': result.repetitionCount,
+        'next_review_date': result.nextReviewDate.toIso8601String().split('T')[0],
+        'last_review_date': DateTime.now().toIso8601String().split('T')[0],
+        'correct_count': quality >= 3 ? 1 : 0,
+        'incorrect_count': quality < 3 ? 1 : 0,
+      });
+    } else {
+      // Update existing progress
+      final result = calculateSM2(
+        quality: quality,
+        repetitionCount: existing.repetitionCount,
+        easeFactor: existing.easeFactor,
+        intervalDays: existing.intervalDays,
+      );
+
+      await _client.from('user_word_progress').update({
+        'ease_factor': result.easeFactor,
+        'interval_days': result.intervalDays,
+        'repetition_count': result.repetitionCount,
+        'next_review_date': result.nextReviewDate.toIso8601String().split('T')[0],
+        'last_review_date': DateTime.now().toIso8601String().split('T')[0],
+        'correct_count': existing.correctCount + (quality >= 3 ? 1 : 0),
+        'incorrect_count': existing.incorrectCount + (quality < 3 ? 1 : 0),
+      }).eq('id', existing.id);
+    }
+  }
+
+  /// Count how many words are due for review today.
+  Future<int> countDueWords(String userId) async {
+    final today = DateTime.now().toIso8601String().split('T')[0];
+    final response = await _client
+        .from('user_word_progress')
+        .select('id')
+        .eq('user_id', userId)
+        .lte('next_review_date', today);
+    return (response as List).length;
+  }
+}
