@@ -25,6 +25,9 @@ class QuizProvider extends ChangeNotifier {
   bool _isAnswered = false;
   bool _isLoading = false;
   List<WordModel> _mistakes = [];
+  int _timeRemaining = AppConstants.quizTimerSeconds;
+  Timer? _questionTimer;
+  bool _timedOut = false;
 
   List<WordModel> get quizWords => _quizWords;
   int get currentIndex => _currentIndex;
@@ -37,6 +40,8 @@ class QuizProvider extends ChangeNotifier {
   List<WordModel> get mistakes => _mistakes;
   int get totalQuestions => _quizWords.length;
   bool get isQuizComplete => _currentIndex >= _quizWords.length;
+  int get timeRemaining => _timeRemaining;
+  bool get timedOut => _timedOut;
 
   WordModel? get currentWord =>
       _currentIndex < _quizWords.length ? _quizWords[_currentIndex] : null;
@@ -52,8 +57,10 @@ class QuizProvider extends ChangeNotifier {
     _totalXpEarned = 0;
     _selectedOptionIndex = null;
     _isAnswered = false;
+    _timedOut = false;
     _mistakes = [];
     _generateOptions();
+    _startTimer();
     notifyListeners();
   }
 
@@ -66,9 +73,38 @@ class QuizProvider extends ChangeNotifier {
     }
   }
 
+  void _startTimer() {
+    _questionTimer?.cancel();
+    _timeRemaining = AppConstants.quizTimerSeconds;
+    _timedOut = false;
+    _questionTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      _timeRemaining--;
+      if (_timeRemaining <= 0) {
+        timer.cancel();
+        if (!_isAnswered) {
+          _timedOut = true;
+          _isAnswered = true;
+          _totalXpEarned += AppConstants.xpIncorrectAnswer;
+          if (currentWord != null) {
+            _mistakes.add(currentWord!);
+          }
+          notifyListeners();
+        }
+      } else {
+        notifyListeners();
+      }
+    });
+  }
+
+  void _stopTimer() {
+    _questionTimer?.cancel();
+    _questionTimer = null;
+  }
+
   Future<void> selectAnswer(int optionIndex, String userId) async {
     if (_isAnswered) return;
 
+    _stopTimer();
     _selectedOptionIndex = optionIndex;
     _isAnswered = true;
 
@@ -107,9 +143,13 @@ class QuizProvider extends ChangeNotifier {
     _currentIndex++;
     _selectedOptionIndex = null;
     _isAnswered = false;
+    _timedOut = false;
 
     if (!isQuizComplete) {
       _generateOptions();
+      _startTimer();
+    } else {
+      _stopTimer();
     }
     notifyListeners();
   }
@@ -131,7 +171,23 @@ class QuizProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void startQuizWithWords(List<WordModel> words, List<WordModel> allWords) {
+    _allWords = allWords;
+    _quizWords = List.from(words);
+    _currentIndex = 0;
+    _score = 0;
+    _totalXpEarned = 0;
+    _selectedOptionIndex = null;
+    _isAnswered = false;
+    _timedOut = false;
+    _mistakes = [];
+    _generateOptions();
+    _startTimer();
+    notifyListeners();
+  }
+
   void reset() {
+    _stopTimer();
     _quizWords = [];
     _currentIndex = 0;
     _score = 0;
@@ -139,7 +195,15 @@ class QuizProvider extends ChangeNotifier {
     _currentOptions = [];
     _selectedOptionIndex = null;
     _isAnswered = false;
+    _timedOut = false;
     _mistakes = [];
+    _timeRemaining = AppConstants.quizTimerSeconds;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _stopTimer();
+    super.dispose();
   }
 }

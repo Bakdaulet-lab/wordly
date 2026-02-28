@@ -5,6 +5,7 @@ class AppConstants {
   static const int quizOptionsCount = 4;
   static const int quizQuestionsPerSession = 10;
   static const int quizAutoAdvanceDelayMs = 800;
+  static const int quizTimerSeconds = 15;
 
   // SM-2 Spaced Repetition defaults
   static const double sm2DefaultEaseFactor = 2.5;

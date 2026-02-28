@@ -13,6 +13,35 @@ import '../screens/progress/review_screen.dart';
 import '../screens/achievements/achievements_screen.dart';
 import '../screens/profile/profile_screen.dart';
 
+Page<void> _fadeTransition(GoRouterState state, Widget child) {
+  return CustomTransitionPage(
+    key: state.pageKey,
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      return FadeTransition(opacity: animation, child: child);
+    },
+    transitionDuration: const Duration(milliseconds: 200),
+  );
+}
+
+Page<void> _slideUpTransition(GoRouterState state, Widget child) {
+  return CustomTransitionPage(
+    key: state.pageKey,
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      final offsetAnimation = Tween<Offset>(
+        begin: const Offset(0, 0.15),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut));
+      return SlideTransition(
+        position: offsetAnimation,
+        child: FadeTransition(opacity: animation, child: child),
+      );
+    },
+    transitionDuration: const Duration(milliseconds: 250),
+  );
+}
+
 GoRouter createRouter(BuildContext context) {
   final authProvider = context.read<AuthProvider>();
 
@@ -30,46 +59,55 @@ GoRouter createRouter(BuildContext context) {
     routes: [
       GoRoute(
         path: '/login',
-        builder: (context, state) => const LoginScreen(),
+        pageBuilder: (context, state) =>
+            _fadeTransition(state, const LoginScreen()),
       ),
       GoRoute(
         path: '/signup',
-        builder: (context, state) => const SignupScreen(),
+        pageBuilder: (context, state) =>
+            _fadeTransition(state, const SignupScreen()),
       ),
       GoRoute(
         path: '/home',
-        builder: (context, state) => const HomeScreen(),
+        pageBuilder: (context, state) =>
+            _fadeTransition(state, const HomeScreen()),
       ),
       GoRoute(
         path: '/words',
-        builder: (context, state) => const WordListScreen(),
+        pageBuilder: (context, state) =>
+            _fadeTransition(state, const WordListScreen()),
       ),
       GoRoute(
         path: '/words/:id',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final wordId = int.parse(state.pathParameters['id']!);
-          return WordDetailScreen(wordId: wordId);
+          return _slideUpTransition(state, WordDetailScreen(wordId: wordId));
         },
       ),
       GoRoute(
         path: '/quiz',
-        builder: (context, state) => const QuizScreen(),
+        pageBuilder: (context, state) =>
+            _slideUpTransition(state, const QuizScreen()),
       ),
       GoRoute(
         path: '/quiz-result',
-        builder: (context, state) => const QuizResultScreen(),
+        pageBuilder: (context, state) =>
+            _fadeTransition(state, const QuizResultScreen()),
       ),
       GoRoute(
         path: '/review',
-        builder: (context, state) => const ReviewScreen(),
+        pageBuilder: (context, state) =>
+            _slideUpTransition(state, const ReviewScreen()),
       ),
       GoRoute(
         path: '/achievements',
-        builder: (context, state) => const AchievementsScreen(),
+        pageBuilder: (context, state) =>
+            _fadeTransition(state, const AchievementsScreen()),
       ),
       GoRoute(
         path: '/profile',
-        builder: (context, state) => const ProfileScreen(),
+        pageBuilder: (context, state) =>
+            _fadeTransition(state, const ProfileScreen()),
       ),
     ],
   );

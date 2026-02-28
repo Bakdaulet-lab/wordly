@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +9,12 @@ import '../../constants/app_constants.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/quiz_provider.dart';
 import '../../providers/word_list_provider.dart';
+import '../../providers/achievement_provider.dart';
+import '../../providers/profile_provider.dart';
+import '../../models/achievement_model.dart';
+import '../../services/xp_service.dart';
+import '../../services/stats_service.dart';
+import '../../services/progress_service.dart';
 
 class QuizScreen extends StatefulWidget {
   const QuizScreen({super.key});
@@ -56,14 +64,128 @@ class _QuizScreenState extends State<QuizScreen> {
     if (!mounted) return;
 
     _isAdvancing = false;
+    _advanceOrFinish(quizProvider, userId);
+  }
+
+  Future<void> _handleTimeout() async {
+    if (_isAdvancing) return;
+    _isAdvancing = true;
+
+    // Brief pause to show "Time's Up!" state
+    await Future.delayed(
+      const Duration(milliseconds: AppConstants.quizAutoAdvanceDelayMs),
+    );
+
+    if (!mounted) return;
+
+    _isAdvancing = false;
+    final userId = context.read<AuthProvider>().user?.id;
+    if (userId == null) return;
+
+    final quizProvider = context.read<QuizProvider>();
+
+    // Fire background network calls for the timed-out answer
+    final wordId = quizProvider.currentWord?.id;
+    if (wordId != null) {
+      unawaited(Future.wait([
+        XpService().awardXp(userId, AppConstants.xpIncorrectAnswer),
+        StatsService().incrementStat(userId, 'incorrect_answers', 1),
+        ProgressService().updateProgress(
+          userId: userId,
+          wordId: wordId,
+          quality: AppConstants.qualityWrong,
+        ),
+      ]));
+    }
+
+    _advanceOrFinish(quizProvider, userId);
+  }
+
+  void _advanceOrFinish(QuizProvider quizProvider, String userId) {
     quizProvider.nextQuestion();
 
     if (quizProvider.isQuizComplete) {
-      await quizProvider.finishQuiz(userId);
-      if (mounted) {
-        context.go('/quiz-result');
-      }
+      quizProvider.finishQuiz(userId).then((_) {
+        if (mounted) {
+          _checkAchievements(userId, quizProvider);
+          context.go('/quiz-result');
+        }
+      });
     }
+  }
+
+  void _checkAchievements(String userId, QuizProvider quizProvider) {
+    final achievementProvider = context.read<AchievementProvider>();
+    final profileProvider = context.read<ProfileProvider>();
+
+    // Refresh profile to get latest XP
+    profileProvider.refreshProfile(userId);
+
+    // Check XP-based achievements
+    achievementProvider
+        .checkAndUnlock(
+          userId: userId,
+          conditionType: 'total_xp',
+          currentValue: profileProvider.totalXp + quizProvider.totalXpEarned,
+        )
+        .then((a) => _showAchievementSnackBar(a));
+
+    // Check perfect quiz achievement
+    if (quizProvider.score == quizProvider.totalQuestions &&
+        quizProvider.totalQuestions > 0) {
+      achievementProvider
+          .checkAndUnlock(
+            userId: userId,
+            conditionType: 'perfect_quiz',
+            currentValue: 1,
+          )
+          .then((a) => _showAchievementSnackBar(a));
+    }
+
+    // Check words_learned / words_reviewed achievements
+    achievementProvider
+        .checkAndUnlock(
+          userId: userId,
+          conditionType: 'words_learned',
+          currentValue: quizProvider.totalQuestions,
+        )
+        .then((a) => _showAchievementSnackBar(a));
+  }
+
+  void _showAchievementSnackBar(AchievementModel? achievement) {
+    if (achievement == null || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.emoji_events_rounded,
+                color: AppColors.xpGold, size: 24),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Achievement Unlocked!',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  Text(
+                    achievement.name,
+                    style: const TextStyle(color: Colors.white70),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: AppColors.primary,
+        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
 
   @override
@@ -178,19 +300,27 @@ class _QuizScreenState extends State<QuizScreen> {
               padding: const EdgeInsets.all(24),
               child: Column(
                 children: [
-                  // Progress bar
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: quiz.totalQuestions > 0
-                          ? (quiz.currentIndex + 1) / quiz.totalQuestions
-                          : 0,
-                      backgroundColor: AppColors.textHint.withValues(alpha:0.2),
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                        AppColors.primary,
+                  // Progress bar + timer row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: quiz.totalQuestions > 0
+                                ? (quiz.currentIndex + 1) / quiz.totalQuestions
+                                : 0,
+                            backgroundColor: AppColors.textHint.withValues(alpha:0.2),
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                              AppColors.primary,
+                            ),
+                            minHeight: 6,
+                          ),
+                        ),
                       ),
-                      minHeight: 6,
-                    ),
+                      const SizedBox(width: 12),
+                      _buildTimerBadge(quiz.timeRemaining, quiz.timedOut),
+                    ],
                   ),
                   const SizedBox(height: 48),
 
@@ -244,15 +374,56 @@ class _QuizScreenState extends State<QuizScreen> {
                           index: index,
                           isAnswered: quiz.isAnswered,
                           selectedIndex: quiz.selectedOptionIndex,
+                          timedOut: quiz.timedOut,
                         );
                       },
                     ),
                   ),
+
+                  // Handle timeout auto-advance
+                  if (quiz.timedOut && !_isAdvancing)
+                    Builder(builder: (context) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        _handleTimeout();
+                      });
+                      return const SizedBox.shrink();
+                    }),
                 ],
               ),
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildTimerBadge(int seconds, bool timedOut) {
+    final isLow = seconds <= 5;
+    final color = timedOut
+        ? AppColors.errorRed
+        : isLow
+            ? AppColors.streakOrange
+            : AppColors.textSecondary;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.timer_rounded, size: 16, color: color),
+          const SizedBox(width: 4),
+          Text(
+            timedOut ? '0s' : '${seconds}s',
+            style: AppTextStyles.bodySmall.copyWith(
+              color: color,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -263,6 +434,7 @@ class _QuizScreenState extends State<QuizScreen> {
     required int index,
     required bool isAnswered,
     required int? selectedIndex,
+    required bool timedOut,
   }) {
     Color backgroundColor = AppColors.cardBackground;
     Color borderColor = AppColors.textHint.withValues(alpha:0.2);

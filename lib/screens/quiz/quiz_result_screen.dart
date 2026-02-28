@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
 import '../../providers/quiz_provider.dart';
+import '../../providers/word_list_provider.dart';
 
 class QuizResultScreen extends StatelessWidget {
   const QuizResultScreen({super.key});
@@ -167,6 +168,33 @@ class QuizResultScreen extends StatelessWidget {
                             ],
                           ),
                         )),
+                    // Practice mistakes button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          final allWords = context.read<WordListProvider>().allWords;
+                          context.read<QuizProvider>().startQuizWithWords(
+                            mistakes,
+                            allWords,
+                          );
+                          context.go('/quiz');
+                        },
+                        icon: const Icon(Icons.replay_rounded, size: 20),
+                        label: Text(
+                          'Practice Mistakes (${mistakes.length})',
+                          style: AppTextStyles.button,
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.streakOrange,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 24),
                   ],
 
