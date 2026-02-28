@@ -49,6 +49,19 @@ class ProfileProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> updateDisplayName(String userId, String newName) async {
+    try {
+      await _profileService.updateProfile(userId, {'display_name': newName});
+      _profile = _profile?.copyWith(displayName: newName);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
   void clear() {
     _profile = null;
     _errorMessage = null;

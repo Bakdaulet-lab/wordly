@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../models/word_model.dart';
 import '../services/word_service.dart';
+
+enum WordSortOption { defaultOrder, alphabetical, alphabeticalDesc, difficultyAsc, difficultyDesc }
 
 class WordListProvider extends ChangeNotifier {
   final WordService _wordService = WordService();
@@ -12,6 +16,8 @@ class WordListProvider extends ChangeNotifier {
   String _searchQuery = '';
   bool _isLoading = false;
   String? _errorMessage;
+  WordSortOption _sortOption = WordSortOption.defaultOrder;
+  Timer? _debounceTimer;
 
   List<WordModel> get words => _filteredWords;
   List<WordModel> get allWords => _allWords;
@@ -20,6 +26,7 @@ class WordListProvider extends ChangeNotifier {
   String get searchQuery => _searchQuery;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  WordSortOption get sortOption => _sortOption;
 
   Future<void> loadWords() async {
     _isLoading = true;
@@ -47,6 +54,15 @@ class WordListProvider extends ChangeNotifier {
 
   void setSearchQuery(String query) {
     _searchQuery = query;
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+      _applyFilters();
+      notifyListeners();
+    });
+  }
+
+  void setSortOption(WordSortOption option) {
+    _sortOption = option;
     _applyFilters();
     notifyListeners();
   }
@@ -60,5 +76,28 @@ class WordListProvider extends ChangeNotifier {
           word.russianTranslation.toLowerCase().contains(_searchQuery.toLowerCase());
       return matchesCategory && matchesSearch;
     }).toList();
+
+    switch (_sortOption) {
+      case WordSortOption.alphabetical:
+        _filteredWords.sort((a, b) =>
+            a.englishWord.toLowerCase().compareTo(b.englishWord.toLowerCase()));
+      case WordSortOption.alphabeticalDesc:
+        _filteredWords.sort((a, b) =>
+            b.englishWord.toLowerCase().compareTo(a.englishWord.toLowerCase()));
+      case WordSortOption.difficultyAsc:
+        _filteredWords.sort((a, b) =>
+            a.difficultyLevel.compareTo(b.difficultyLevel));
+      case WordSortOption.difficultyDesc:
+        _filteredWords.sort((a, b) =>
+            b.difficultyLevel.compareTo(a.difficultyLevel));
+      case WordSortOption.defaultOrder:
+        break;
+    }
+  }
+
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    super.dispose();
   }
 }

@@ -6,15 +6,104 @@ import '../../constants/app_text_styles.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/profile_provider.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
-  Future<void> _handleLogout(BuildContext context) async {
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  Future<void> _handleLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Log Out'),
+        content: const Text('Are you sure you want to log out?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.errorRed,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Log Out'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
     final authProvider = context.read<AuthProvider>();
     await authProvider.signOut();
-    if (context.mounted) {
+    if (mounted) {
       context.go('/login');
     }
+  }
+
+  void _showEditNameDialog() {
+    final userId = context.read<AuthProvider>().user?.id;
+    if (userId == null) return;
+
+    final currentName = context.read<ProfileProvider>().displayName;
+    final nameController = TextEditingController(text: currentName);
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Edit Display Name'),
+        content: TextField(
+          controller: nameController,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(
+            labelText: 'Display Name',
+            prefixIcon: Icon(Icons.person_outlined),
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final newName = nameController.text.trim();
+              if (newName.isEmpty) return;
+              Navigator.of(dialogContext).pop();
+
+              final profileProvider = context.read<ProfileProvider>();
+              final success = await profileProvider.updateDisplayName(
+                userId,
+                newName,
+              );
+
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    success ? 'Name updated!' : 'Failed to update name.',
+                  ),
+                  backgroundColor:
+                      success ? AppColors.successGreen : AppColors.errorRed,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    ).then((_) => nameController.dispose());
   }
 
   @override
@@ -73,7 +162,7 @@ class ProfileScreen extends StatelessWidget {
                 // Avatar
                 CircleAvatar(
                   radius: 48,
-                  backgroundColor: AppColors.primary.withValues(alpha:0.15),
+                  backgroundColor: AppColors.primary.withValues(alpha: 0.15),
                   child: Text(
                     displayName.isNotEmpty
                         ? displayName[0].toUpperCase()
@@ -86,10 +175,26 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
 
-                // Display name
-                Text(
-                  displayName.isNotEmpty ? displayName : 'Learner',
-                  style: AppTextStyles.heading2,
+                // Display name with edit button
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      displayName.isNotEmpty ? displayName : 'Learner',
+                      style: AppTextStyles.heading2,
+                    ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      onPressed: _showEditNameDialog,
+                      icon: const Icon(
+                        Icons.edit_rounded,
+                        size: 18,
+                        color: AppColors.textHint,
+                      ),
+                      visualDensity: VisualDensity.compact,
+                      tooltip: 'Edit name',
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 4),
 
@@ -109,7 +214,7 @@ class ProfileScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha:0.05),
+                        color: Colors.black.withValues(alpha: 0.05),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -130,7 +235,7 @@ class ProfileScreen extends StatelessWidget {
                           Container(
                             width: 1,
                             height: 48,
-                            color: AppColors.textHint.withValues(alpha:0.2),
+                            color: AppColors.textHint.withValues(alpha: 0.2),
                           ),
                           Expanded(
                             child: _buildStatItem(
@@ -144,7 +249,7 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 20),
                       Divider(
-                        color: AppColors.textHint.withValues(alpha:0.2),
+                        color: AppColors.textHint.withValues(alpha: 0.2),
                         height: 1,
                       ),
                       const SizedBox(height: 20),
@@ -155,20 +260,22 @@ class ProfileScreen extends StatelessWidget {
                               icon: Icons.local_fire_department_rounded,
                               iconColor: AppColors.streakOrange,
                               label: 'Current Streak',
-                              value: '$currentStreak day${currentStreak == 1 ? '' : 's'}',
+                              value:
+                                  '$currentStreak day${currentStreak == 1 ? '' : 's'}',
                             ),
                           ),
                           Container(
                             width: 1,
                             height: 48,
-                            color: AppColors.textHint.withValues(alpha:0.2),
+                            color: AppColors.textHint.withValues(alpha: 0.2),
                           ),
                           Expanded(
                             child: _buildStatItem(
                               icon: Icons.emoji_events_rounded,
                               iconColor: AppColors.xpGold,
                               label: 'Longest Streak',
-                              value: '$longestStreak day${longestStreak == 1 ? '' : 's'}',
+                              value:
+                                  '$longestStreak day${longestStreak == 1 ? '' : 's'}',
                             ),
                           ),
                         ],
@@ -188,7 +295,7 @@ class ProfileScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha:0.05),
+                          color: Colors.black.withValues(alpha: 0.05),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -224,8 +331,7 @@ class ProfileScreen extends StatelessWidget {
                   child: Consumer<AuthProvider>(
                     builder: (context, auth, child) {
                       return ElevatedButton(
-                        onPressed:
-                            auth.isLoading ? null : () => _handleLogout(context),
+                        onPressed: auth.isLoading ? null : _handleLogout,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.errorRed,
                           foregroundColor: Colors.white,
@@ -294,18 +400,8 @@ class ProfileScreen extends StatelessWidget {
 
   String _formatDate(DateTime date) {
     final months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
     ];
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }

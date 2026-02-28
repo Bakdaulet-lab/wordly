@@ -24,6 +24,32 @@ class AuthProvider extends ChangeNotifier {
     });
   }
 
+  String _friendlyError(Object e) {
+    final msg = e.toString().toLowerCase();
+    if (msg.contains('invalid login credentials') || msg.contains('invalid_grant')) {
+      return 'Wrong email or password. Please try again.';
+    }
+    if (msg.contains('email not confirmed')) {
+      return 'Please check your email and confirm your account.';
+    }
+    if (msg.contains('user already registered') || msg.contains('already been registered')) {
+      return 'An account with this email already exists. Try logging in.';
+    }
+    if (msg.contains('password') && msg.contains('length')) {
+      return 'Password must be at least 6 characters.';
+    }
+    if (msg.contains('invalid email') || msg.contains('unable to validate email')) {
+      return 'Please enter a valid email address.';
+    }
+    if (msg.contains('network') || msg.contains('socketexception') || msg.contains('connection')) {
+      return 'No internet connection. Please check your network.';
+    }
+    if (msg.contains('too many requests') || msg.contains('rate limit')) {
+      return 'Too many attempts. Please wait a moment and try again.';
+    }
+    return 'Something went wrong. Please try again.';
+  }
+
   Future<bool> signUp({
     required String email,
     required String password,
@@ -44,7 +70,7 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return _user != null;
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = _friendlyError(e);
       _isLoading = false;
       notifyListeners();
       return false;
@@ -69,7 +95,7 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return _user != null;
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = _friendlyError(e);
       _isLoading = false;
       notifyListeners();
       return false;
@@ -84,11 +110,29 @@ class AuthProvider extends ChangeNotifier {
       await _authService.signOut();
       _user = null;
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = _friendlyError(e);
     }
 
     _isLoading = false;
     notifyListeners();
+  }
+
+  Future<bool> resetPassword(String email) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _authService.resetPassword(email);
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = _friendlyError(e);
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
   }
 
   void clearError() {
