@@ -12,6 +12,17 @@ void main() {
         );
       });
 
+      test('strips XSS event handler patterns', () {
+        expect(
+          InputSanitizer.sanitize('hello onload=alert(1)'),
+          equals('hello alert(1)'),
+        );
+        expect(
+          InputSanitizer.sanitize('javascript:alert(1)'),
+          equals('alert(1)'),
+        );
+      });
+
       test('trims whitespace', () {
         expect(InputSanitizer.sanitize('  hello  '), equals('hello'));
       });
@@ -29,6 +40,29 @@ void main() {
       });
     });
 
+    group('escapeHtml', () {
+      test('escapes all five critical HTML characters', () {
+        expect(InputSanitizer.escapeHtml('&'), equals('&amp;'));
+        expect(InputSanitizer.escapeHtml('<'), equals('&lt;'));
+        expect(InputSanitizer.escapeHtml('>'), equals('&gt;'));
+        expect(InputSanitizer.escapeHtml('"'), equals('&quot;'));
+        expect(InputSanitizer.escapeHtml("'"), equals('&#x27;'));
+      });
+
+      test('escapes mixed content', () {
+        expect(
+          InputSanitizer.escapeHtml('<script>alert("xss")</script>'),
+          equals(
+            '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;',
+          ),
+        );
+      });
+
+      test('leaves safe text unchanged', () {
+        expect(InputSanitizer.escapeHtml('Hello World'), equals('Hello World'));
+      });
+    });
+
     group('sanitizeWithLimit', () {
       test('truncates strings exceeding max length', () {
         final long = 'a' * 200;
@@ -42,7 +76,7 @@ void main() {
     });
 
     group('sanitizeDisplayName', () {
-      test('strips tags and trims', () {
+      test('strips tags, escapes HTML entities, and trims', () {
         expect(
           InputSanitizer.sanitizeDisplayName('<b>Alex</b>'),
           equals('Alex'),
@@ -53,6 +87,41 @@ void main() {
         final long = 'a' * 100;
         final result = InputSanitizer.sanitizeDisplayName(long);
         expect(result.length, equals(InputSanitizer.maxDisplayNameLength));
+      });
+
+      test('removes disallowed characters', () {
+        expect(
+          InputSanitizer.sanitizeDisplayName('Al@ex#\$%'),
+          equals('Alex'),
+        );
+      });
+
+      test('allows Unicode letters', () {
+        expect(
+          InputSanitizer.sanitizeDisplayName('Алексей'),
+          equals('Алексей'),
+        );
+      });
+
+      test('allows hyphens, underscores, apostrophes, dots', () {
+        expect(
+          InputSanitizer.sanitizeDisplayName("O'Brien-Jr."),
+          equals("O'Brien-Jr."),
+        );
+      });
+
+      test('blocks XSS via javascript: URI in display name', () {
+        final result = InputSanitizer.sanitizeDisplayName(
+          'javascript:alert(1)',
+        );
+        expect(result, isNot(contains('javascript:')));
+      });
+
+      test('blocks XSS via event handler in display name', () {
+        final result = InputSanitizer.sanitizeDisplayName(
+          'name" onmouseover="alert(1)"',
+        );
+        expect(result, isNot(contains('onmouseover')));
       });
     });
 

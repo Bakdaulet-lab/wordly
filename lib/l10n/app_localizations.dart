@@ -39,6 +39,12 @@ class AppLocalizations {
       'goHome': 'Go Home',
       'close': 'Close',
       'remove': 'Remove',
+      'confirm': 'Confirm',
+      'resetProgress': 'Reset Progress',
+      'resetProgressConfirm': 'This will erase all your learning progress, XP, and streaks. This action cannot be undone.',
+      'resetProgressSuccess': 'Progress has been reset.',
+      'resetProgressFailed': 'Failed to reset progress.',
+      'loadingMore': 'Loading more...',
 
       // Auth
       'login': 'Log In',
@@ -282,6 +288,12 @@ class AppLocalizations {
       'goHome': 'На главную',
       'close': 'Закрыть',
       'remove': 'Удалить',
+      'confirm': 'Подтвердить',
+      'resetProgress': 'Сбросить прогресс',
+      'resetProgressConfirm': 'Это удалит весь ваш прогресс обучения, XP и серии. Это действие нельзя отменить.',
+      'resetProgressSuccess': 'Прогресс сброшен.',
+      'resetProgressFailed': 'Не удалось сбросить прогресс.',
+      'loadingMore': 'Загрузка...',
 
       // Auth
       'login': 'Войти',

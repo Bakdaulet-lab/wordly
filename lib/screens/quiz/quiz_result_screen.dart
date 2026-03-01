@@ -8,6 +8,7 @@ import '../../constants/app_text_styles.dart';
 import '../../constants/app_theme.dart';
 import '../../providers/quiz_provider.dart';
 import '../../providers/word_list_provider.dart';
+import '../../widgets/confetti_overlay.dart';
 
 class QuizResultScreen extends StatefulWidget {
   const QuizResultScreen({super.key});
@@ -18,6 +19,7 @@ class QuizResultScreen extends StatefulWidget {
 
 class _QuizResultScreenState extends State<QuizResultScreen> {
   bool _isSharing = false;
+  bool _confettiFired = false;
 
   Future<void> _handleShare(int score, int total, int xpEarned, bool isPerfect) async {
     if (_isSharing) return;
@@ -48,13 +50,22 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
     return Scaffold(
       backgroundColor: AppTheme.background(context),
       body: SafeArea(
-        child: Consumer<QuizProvider>(
-          builder: (context, quiz, child) {
-            final score = quiz.score;
-            final total = quiz.totalQuestions;
-            final xpEarned = quiz.totalXpEarned;
-            final mistakes = quiz.mistakes;
-            final isPerfect = score == total && total > 0;
+        child: ConfettiOverlay(
+          child: Consumer<QuizProvider>(
+            builder: (context, quiz, child) {
+              final score = quiz.score;
+              final total = quiz.totalQuestions;
+              final xpEarned = quiz.totalXpEarned;
+              final mistakes = quiz.mistakes;
+              final isPerfect = score == total && total > 0;
+
+              // Fire confetti once for perfect quiz
+              if (isPerfect && !_confettiFired) {
+                _confettiFired = true;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  ConfettiOverlay.maybeOf(context)?.play();
+                });
+              }
 
             return SingleChildScrollView(
               padding: const EdgeInsets.all(24),
@@ -241,6 +252,28 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                     const SizedBox(height: 24),
                   ],
 
+                  // Review all answers button
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => context.push('/quiz-review'),
+                      icon: const Icon(Icons.rate_review_rounded, size: 20),
+                      label: const Text(
+                        'Review All Answers',
+                        style: AppTextStyles.button,
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        side: const BorderSide(color: AppColors.primary),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
                   // Action buttons
                   SizedBox(
                     width: double.infinity,
@@ -309,6 +342,7 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
               ),
             );
           },
+        ),
         ),
       ),
     );

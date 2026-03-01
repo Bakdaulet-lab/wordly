@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -19,6 +20,7 @@ import 'providers/locale_provider.dart';
 import 'providers/notification_provider.dart';
 import 'providers/connectivity_provider.dart';
 import 'providers/leaderboard_provider.dart';
+import 'providers/word_lifter_provider.dart';
 import 'services/connectivity_service.dart';
 import 'services/sync_service.dart';
 import 'services/notification_service.dart';
@@ -38,14 +40,14 @@ void main() async {
     return true;
   };
 
-  // Validate that Supabase credentials were supplied via --dart-define
+  // Load environment variables from .env file
+  await dotenv.load(fileName: '.env');
+
+  // Validate that Supabase credentials were supplied via .env
   if (!SupabaseConstants.isConfigured) {
     debugPrint(
       'ERROR: Supabase credentials missing.\n'
-      'Run with: flutter run '
-      '--dart-define=SUPABASE_URL=<url> '
-      '--dart-define=SUPABASE_ANON_KEY=<key>\n'
-      'Or use: flutter run --dart-define-from-file=.env',
+      'Ensure .env contains SUPABASE_URL and SUPABASE_ANON_KEY.',
     );
     runApp(const _InitErrorApp());
     return;
@@ -112,6 +114,7 @@ void main() async {
               ConnectivityProvider(connectivityService, syncService),
         ),
         ChangeNotifierProvider(create: (_) => LeaderboardProvider()),
+        ChangeNotifierProvider(create: (_) => WordLifterProvider()),
       ],
       child: MyApp(onboardingComplete: onboardingComplete),
     ),

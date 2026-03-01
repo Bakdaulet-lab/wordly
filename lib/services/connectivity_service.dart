@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter/foundation.dart';
+import '../services/logger_service.dart';
 
 /// Monitors network connectivity and exposes the current state
 /// as a [ValueNotifier]-style stream.
@@ -27,7 +27,7 @@ class ConnectivityService {
       _isOnline = _evaluateResults(results);
       if (wasOnline != _isOnline) {
         _onlineController.add(_isOnline);
-        debugPrint('[ConnectivityService] Online: $_isOnline');
+        AppLogger.info('Online: $_isOnline', tag: 'ConnectivityService');
       }
     });
   }

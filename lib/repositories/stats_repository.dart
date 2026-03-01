@@ -2,6 +2,7 @@ import '../models/daily_stats_model.dart';
 import '../services/stats_service.dart';
 import '../services/daily_goal_service.dart';
 import '../utils/api_guard.dart';
+import '../utils/performance_monitor.dart';
 import '../utils/result.dart';
 
 /// Repository for daily statistics + streak tracking.
@@ -12,23 +13,23 @@ class StatsRepository {
   StatsRepository(this._statsService, this._dailyGoalService);
 
   Future<Result<DailyStatsModel>> getOrCreateTodayStats(String userId) {
-    return apiGuard(() => _statsService.getOrCreateTodayStats(userId));
+    return apiGuard(() => PerformanceMonitor.measure('StatsRepo.getOrCreateTodayStats', () => _statsService.getOrCreateTodayStats(userId)));
   }
 
   Future<Result<void>> incrementStat(
       String userId, String field, int amount,) {
     return apiGuard(
-        () => _statsService.incrementStat(userId, field, amount),);
+        () => PerformanceMonitor.measure('StatsRepo.incrementStat', () => _statsService.incrementStat(userId, field, amount)),);
   }
 
   Future<Result<List<DailyStatsModel>>> getStatsForRange(
       String userId, DateTime startDate, DateTime endDate,) {
     return apiGuard(
-        () => _statsService.getStatsForRange(userId, startDate, endDate),);
+        () => PerformanceMonitor.measure('StatsRepo.getStatsForRange', () => _statsService.getStatsForRange(userId, startDate, endDate)),);
   }
 
   Future<Result<int>> updateStreak(String userId) {
-    return apiGuard(() => _statsService.updateStreak(userId));
+    return apiGuard(() => PerformanceMonitor.measure('StatsRepo.updateStreak', () => _statsService.updateStreak(userId)));
   }
 
   Future<Result<int>> getGoal() {

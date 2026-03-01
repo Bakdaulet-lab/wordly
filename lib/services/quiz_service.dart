@@ -30,7 +30,7 @@ class QuizService implements IQuizService {
               wordId: w.id,
               text: w.russianTranslation,
               isCorrect: false,
-            ))
+            ),)
         .toList();
 
     final correctOption = QuizOptionModel(

@@ -2,11 +2,13 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
 import '../../constants/app_theme.dart';
+import '../../di/service_locator.dart';
 import '../../providers/analytics_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/word_list_provider.dart';
+import '../../services/export_service.dart';
 import '../../widgets/error_message.dart';
 import '../../widgets/loading_indicator.dart';
 
@@ -32,6 +34,29 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     await context.read<AnalyticsProvider>().loadAnalytics(userId);
   }
 
+  Future<void> _handleExport(String type) async {
+    final exportService = sl<ExportService>();
+    try {
+      switch (type) {
+        case 'stats_csv':
+          final provider = context.read<AnalyticsProvider>();
+          await exportService.exportStats(provider.filteredStats);
+        case 'words_json':
+          final words = context.read<WordListProvider>().allWords;
+          await exportService.exportWordsJson(words);
+        case 'words_csv':
+          final words = context.read<WordListProvider>().allWords;
+          await exportService.exportWords(words);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Export failed: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -40,6 +65,45 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         title: const Text('Analytics', style: AppTextStyles.heading3),
         backgroundColor: AppTheme.surface(context),
         elevation: 0,
+        actions: [
+          PopupMenuButton<String>(
+            icon: Icon(Icons.file_download_outlined, color: AppTheme.textPrimary(context)),
+            tooltip: 'Export data',
+            onSelected: (value) => _handleExport(value),
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'stats_csv',
+                child: Row(
+                  children: [
+                    Icon(Icons.table_chart_outlined, size: 20),
+                    SizedBox(width: 8),
+                    Text('Export Stats (CSV)'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'words_json',
+                child: Row(
+                  children: [
+                    Icon(Icons.data_object_outlined, size: 20),
+                    SizedBox(width: 8),
+                    Text('Export Words (JSON)'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'words_csv',
+                child: Row(
+                  children: [
+                    Icon(Icons.list_alt_outlined, size: 20),
+                    SizedBox(width: 8),
+                    Text('Export Words (CSV)'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       body: Consumer<AnalyticsProvider>(
         builder: (context, provider, _) {
@@ -56,7 +120,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           }
 
           return RefreshIndicator(
-            color: AppColors.primary,
+            color: Theme.of(context).colorScheme.primary,
             onRefresh: _loadData,
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -100,15 +164,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               label: Text(
                 period.label,
                 style: AppTextStyles.bodySmall.copyWith(
-                  color: isSelected ? Colors.white : AppColors.textPrimary,
+                  color: isSelected ? Colors.white : Theme.of(context).colorScheme.onSurface,
                   fontWeight:
                       isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
               selected: isSelected,
               onSelected: (_) => provider.setPeriod(period),
-              selectedColor: AppColors.primary,
-              backgroundColor: AppColors.surface,
+              selectedColor: Theme.of(context).colorScheme.primary,
+              backgroundColor: AppTheme.surface(context),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
@@ -130,7 +194,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             Expanded(
               child: _summaryCard(
                 icon: Icons.star_rounded,
-                iconColor: AppColors.xpGold,
+                iconColor: AppTheme.xpGold,
                 value: '${summary.totalXp}',
                 label: 'Total XP',
               ),
@@ -139,7 +203,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             Expanded(
               child: _summaryCard(
                 icon: Icons.track_changes_rounded,
-                iconColor: AppColors.successGreen,
+                iconColor: AppTheme.successGreen,
                 value: '${(summary.averageAccuracy * 100).toInt()}%',
                 label: 'Avg Accuracy',
               ),
@@ -152,7 +216,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             Expanded(
               child: _summaryCard(
                 icon: Icons.menu_book_rounded,
-                iconColor: AppColors.primary,
+                iconColor: Theme.of(context).colorScheme.primary,
                 value: '${summary.totalWordsReviewed}',
                 label: 'Words Reviewed',
               ),
@@ -161,7 +225,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             Expanded(
               child: _summaryCard(
                 icon: Icons.calendar_today_rounded,
-                iconColor: AppColors.streakOrange,
+                iconColor: AppTheme.streakOrange,
                 value: '${summary.activeDays}',
                 label: 'Active Days',
               ),
@@ -240,7 +304,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               drawVerticalLine: false,
               horizontalInterval: effectiveMax / 4,
               getDrawingHorizontalLine: (_) => FlLine(
-                color: AppColors.textHint.withValues(alpha: 0.15),
+                color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.15),
                 strokeWidth: 1,
               ),
             ),
@@ -251,8 +315,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             lineBarsData: [
               _lineBarData(
                 data,
-                AppColors.primary,
-                AppColors.primary.withValues(alpha: 0.15),
+                Theme.of(context).colorScheme.primary,
+                Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
               ),
             ],
             lineTouchData: LineTouchData(
@@ -292,7 +356,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               drawVerticalLine: false,
               horizontalInterval: 0.25,
               getDrawingHorizontalLine: (_) => FlLine(
-                color: AppColors.textHint.withValues(alpha: 0.15),
+                color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.15),
                 strokeWidth: 1,
               ),
             ),
@@ -303,8 +367,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             lineBarsData: [
               _lineBarData(
                 data,
-                AppColors.successGreen,
-                AppColors.successGreen.withValues(alpha: 0.12),
+                AppTheme.successGreen,
+                AppTheme.successGreen.withValues(alpha: 0.12),
               ),
             ],
             lineTouchData: LineTouchData(
@@ -355,7 +419,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               drawVerticalLine: false,
               horizontalInterval: effectiveMax / 4,
               getDrawingHorizontalLine: (_) => FlLine(
-                color: AppColors.textHint.withValues(alpha: 0.15),
+                color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.15),
                 strokeWidth: 1,
               ),
             ),
@@ -409,7 +473,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 barRods: [
                   BarChartRodData(
                     toY: reviewed[i].value,
-                    color: AppColors.primary,
+                    color: Theme.of(context).colorScheme.primary,
                     width: reviewed.length > 14 ? 4 : 8,
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(3),
@@ -417,7 +481,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   ),
                   BarChartRodData(
                     toY: learned[i].value,
-                    color: AppColors.xpGold,
+                    color: AppTheme.xpGold,
                     width: reviewed.length > 14 ? 4 : 8,
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(3),
@@ -444,8 +508,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         ),
       ),
       legendItems: [
-        _legendItem(AppColors.primary, 'Reviewed'),
-        _legendItem(AppColors.xpGold, 'Learned'),
+        _legendItem(Theme.of(context).colorScheme.primary, 'Reviewed'),
+        _legendItem(AppTheme.xpGold, 'Learned'),
       ],
     );
   }
@@ -484,7 +548,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   sections: [
                     PieChartSectionData(
                       value: correct.toDouble(),
-                      color: AppColors.successGreen,
+                      color: AppTheme.successGreen,
                       title: '${(correct / total * 100).toInt()}%',
                       titleStyle: AppTextStyles.bodySmall.copyWith(
                         color: Colors.white,
@@ -495,7 +559,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     ),
                     PieChartSectionData(
                       value: incorrect.toDouble(),
-                      color: AppColors.errorRed,
+                      color: AppTheme.errorRed,
                       title: '${(incorrect / total * 100).toInt()}%',
                       titleStyle: AppTextStyles.bodySmall.copyWith(
                         color: Colors.white,
@@ -513,9 +577,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _legendItem(AppColors.successGreen, 'Correct ($correct)'),
+                _legendItem(AppTheme.successGreen, 'Correct ($correct)'),
                 const SizedBox(height: 8),
-                _legendItem(AppColors.errorRed, 'Incorrect ($incorrect)'),
+                _legendItem(AppTheme.errorRed, 'Incorrect ($incorrect)'),
               ],
             ),
           ],
@@ -542,28 +606,28 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           children: [
             _highlightRow(
               Icons.trending_up_rounded,
-              AppColors.primary,
+              Theme.of(context).colorScheme.primary,
               'Avg Daily XP',
               '$avgXpStr XP',
             ),
             const Divider(height: 20),
             _highlightRow(
               Icons.emoji_events_rounded,
-              AppColors.xpGold,
+              AppTheme.xpGold,
               'Best Day',
               '${summary.bestDayXp} XP ($bestDateStr)',
             ),
             const Divider(height: 20),
             _highlightRow(
               Icons.timer_rounded,
-              AppColors.streakOrange,
+              AppTheme.streakOrange,
               'Study Time',
               '$studyMinutes min',
             ),
             const Divider(height: 20),
             _highlightRow(
               Icons.school_rounded,
-              AppColors.successGreen,
+              AppTheme.successGreen,
               'Words Learned',
               '${summary.totalWordsLearned}',
             ),

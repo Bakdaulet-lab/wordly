@@ -8,6 +8,8 @@ import '../../constants/app_theme.dart';
 import '../../models/word_model.dart';
 import '../../providers/word_list_provider.dart';
 import '../../utils/input_sanitizer.dart';
+import 'word_search_delegate.dart';
+import '../../widgets/shimmer_loading.dart';
 
 class WordListScreen extends StatefulWidget {
   const WordListScreen({super.key});
@@ -53,6 +55,7 @@ class _WordListScreenState extends State<WordListScreen> {
               children: [
                 const Text('Word Library', style: AppTextStyles.heading1),
                 const Spacer(),
+                _buildSearchIcon(),
                 _buildFavoritesToggle(),
                 _buildSortButton(),
               ],
@@ -66,6 +69,26 @@ class _WordListScreenState extends State<WordListScreen> {
           Expanded(child: _buildWordList()),
         ],
       ),
+    );
+  }
+
+  Widget _buildSearchIcon() {
+    return Consumer<WordListProvider>(
+      builder: (context, provider, child) {
+        return IconButton(
+          icon: Icon(Icons.search_rounded, color: AppTheme.textHint(context)),
+          tooltip: 'Search words',
+          onPressed: () {
+            showSearch(
+              context: context,
+              delegate: WordSearchDelegate(
+                allWords: provider.allWords,
+                favoriteIds: provider.favoriteIds,
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -260,9 +283,7 @@ class _WordListScreenState extends State<WordListScreen> {
     return Consumer<WordListProvider>(
       builder: (context, wordListProvider, child) {
         if (wordListProvider.isLoading) {
-          return const Center(
-            child: CircularProgressIndicator(color: AppColors.primary),
-          );
+          return const ShimmerWordList();
         }
 
         if (wordListProvider.errorMessage != null) {
@@ -392,54 +413,65 @@ class _WordListScreenState extends State<WordListScreen> {
   Widget _buildWordCard(BuildContext context, WordModel word) {
     final provider = context.read<WordListProvider>();
     final isFav = provider.isFavorite(word.id);
+    final diffLabels = ['', 'Beginner', 'Easy', 'Medium', 'Hard', 'Expert'];
+    final safeLevel = word.difficultyLevel.clamp(1, 5);
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      color: AppTheme.card(context),
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: () => context.push('/words/${word.id}'),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      word.englishWord,
-                      style: AppTextStyles.bodyLarge.copyWith(
-                        fontWeight: FontWeight.w600,
+    return Semantics(
+      label: '${word.englishWord}, ${word.russianTranslation}, '
+          '${diffLabels[safeLevel]} difficulty'
+          '${isFav ? ', favorite' : ''}',
+      child: Card(
+        margin: const EdgeInsets.only(bottom: 10),
+        color: AppTheme.card(context),
+        elevation: 1,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: InkWell(
+          onTap: () => context.push('/words/${word.id}'),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        word.englishWord,
+                        style: AppTextStyles.bodyLarge.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      word.russianTranslation,
-                      style: AppTextStyles.bodyMedium,
-                    ),
-                  ],
-                ),
-              ),
-              _buildDifficultyBadge(word.difficultyLevel),
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: () => provider.toggleFavorite(word.id),
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 250),
-                  transitionBuilder: (child, anim) =>
-                      ScaleTransition(scale: anim, child: child),
-                  child: Icon(
-                    isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                    key: ValueKey<bool>(isFav),
-                    color: isFav ? AppColors.errorRed : AppColors.textHint,
-                    size: 22,
+                      const SizedBox(height: 4),
+                      Text(
+                        word.russianTranslation,
+                        style: AppTextStyles.bodyMedium,
+                      ),
+                    ],
                   ),
                 ),
-              ),
-            ],
+                _buildDifficultyBadge(word.difficultyLevel),
+                const SizedBox(width: 8),
+                Semantics(
+                  button: true,
+                  label: isFav ? 'Remove from favorites' : 'Add to favorites',
+                  child: GestureDetector(
+                    onTap: () => provider.toggleFavorite(word.id),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 250),
+                      transitionBuilder: (child, anim) =>
+                          ScaleTransition(scale: anim, child: child),
+                      child: Icon(
+                        isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                        key: ValueKey<bool>(isFav),
+                        color: isFav ? AppColors.errorRed : AppColors.textHint,
+                        size: 22,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

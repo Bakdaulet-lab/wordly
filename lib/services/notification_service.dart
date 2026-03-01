@@ -1,8 +1,12 @@
+import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/logger_service.dart';
+import '../models/word_model.dart';
 
 /// Service for scheduling and managing local push notifications.
 ///
@@ -15,10 +19,14 @@ class NotificationService {
   static const String _prefReminderEnabled = 'notification_reminder_enabled';
   static const String _prefReminderHour = 'notification_reminder_hour';
   static const String _prefReminderMinute = 'notification_reminder_minute';
+  static const String _prefWotdEnabled = 'notification_wotd_enabled';
+  static const String _prefWotdHour = 'notification_wotd_hour';
+  static const String _prefWotdMinute = 'notification_wotd_minute';
 
   static const int _dailyReminderId = 1000;
   static const int _streakWarningId = 1001;
   static const int _reviewDueId = 1002;
+  static const int _wordOfTheDayId = 1003;
 
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
@@ -55,11 +63,11 @@ class NotificationService {
     );
 
     _initialized = true;
-    debugPrint('[NotificationService] Initialized');
+    AppLogger.info('Initialized', tag: 'NotificationService');
   }
 
   void _onNotificationTap(NotificationResponse response) {
-    debugPrint('[NotificationService] Tapped: ${response.payload}');
+    AppLogger.debug('Tapped: ${response.payload}', tag: 'NotificationService');
     // Navigation can be handled via a callback or event bus.
   }
 
@@ -131,7 +139,7 @@ class NotificationService {
     await prefs.setInt(_prefReminderHour, hour);
     await prefs.setInt(_prefReminderMinute, minute);
 
-    debugPrint('[NotificationService] Daily reminder set for $hour:$minute');
+    AppLogger.info('Daily reminder set for $hour:$minute', tag: 'NotificationService');
   }
 
   Future<void> cancelDailyReminder() async {
@@ -235,6 +243,107 @@ class NotificationService {
     );
   }
 
+  // ── Word of the Day ─────────────────────────────────────────────
+
+  static const AndroidNotificationDetails _wotdChannel =
+      AndroidNotificationDetails(
+    'word_of_the_day',
+    'Word of the Day',
+    channelDescription: 'Daily word of the day notifications',
+    importance: Importance.high,
+    priority: Priority.high,
+    icon: '@mipmap/ic_launcher',
+  );
+
+  /// Schedule a daily "Word of the Day" notification at the given time.
+  ///
+  /// Picks a random word from [words] using the current date as seed (same word
+  /// the dashboard shows) and schedules it as a recurring daily notification.
+  /// If [words] is empty the call is a no-op.
+  Future<void> scheduleWordOfTheDay({
+    required int hour,
+    required int minute,
+    required List<WordModel> words,
+  }) async {
+    if (kIsWeb || words.isEmpty) return;
+
+    await cancelWordOfTheDay();
+
+    // Deterministic pick identical to the dashboard card
+    final now = DateTime.now();
+    final daySeed = now.year * 10000 + now.month * 100 + now.day;
+    final index = Random(daySeed).nextInt(words.length);
+    final word = words[index];
+
+    final tzNow = tz.TZDateTime.now(tz.local);
+    var scheduledDate = tz.TZDateTime(
+      tz.local,
+      tzNow.year,
+      tzNow.month,
+      tzNow.day,
+      hour,
+      minute,
+    );
+    if (scheduledDate.isBefore(tzNow)) {
+      scheduledDate = scheduledDate.add(const Duration(days: 1));
+    }
+
+    await _plugin.zonedSchedule(
+      _wordOfTheDayId,
+      '🌟 Word of the Day: ${word.englishWord}',
+      '${word.russianTranslation} — Tap to learn more!',
+      scheduledDate,
+      const NotificationDetails(
+        android: _wotdChannel,
+        iOS: DarwinNotificationDetails(),
+      ),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: DateTimeComponents.time,
+      payload: 'word_of_the_day:${word.id}',
+    );
+
+    // Persist preference
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefWotdEnabled, true);
+    await prefs.setInt(_prefWotdHour, hour);
+    await prefs.setInt(_prefWotdMinute, minute);
+
+    AppLogger.info(
+      'Word of the Day scheduled at $hour:$minute — "${word.englishWord}"',
+      tag: 'NotificationService',
+    );
+  }
+
+  /// Cancel the Word of the Day notification.
+  Future<void> cancelWordOfTheDay() async {
+    await _plugin.cancel(_wordOfTheDayId);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefWotdEnabled, false);
+  }
+
+  /// Restore the word-of-the-day notification on app startup.
+  Future<void> restoreWordOfTheDay(List<WordModel> words) async {
+    final prefs = await SharedPreferences.getInstance();
+    final enabled = prefs.getBool(_prefWotdEnabled) ?? false;
+    if (!enabled) return;
+
+    final hour = prefs.getInt(_prefWotdHour) ?? 9;
+    final minute = prefs.getInt(_prefWotdMinute) ?? 0;
+    await scheduleWordOfTheDay(hour: hour, minute: minute, words: words);
+  }
+
+  /// Get current Word of the Day notification settings.
+  Future<WotdSettings> getWotdSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    return WotdSettings(
+      enabled: prefs.getBool(_prefWotdEnabled) ?? false,
+      hour: prefs.getInt(_prefWotdHour) ?? 9,
+      minute: prefs.getInt(_prefWotdMinute) ?? 0,
+    );
+  }
+
   // ── Cancel all ─────────────────────────────────────────────────────
 
   Future<void> cancelAll() async {
@@ -261,6 +370,19 @@ class ReminderSettings {
   final int minute;
 
   const ReminderSettings({
+    required this.enabled,
+    required this.hour,
+    required this.minute,
+  });
+}
+
+/// Simple value object for Word of the Day notification settings.
+class WotdSettings {
+  final bool enabled;
+  final int hour;
+  final int minute;
+
+  const WotdSettings({
     required this.enabled,
     required this.hour,
     required this.minute,

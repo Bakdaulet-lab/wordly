@@ -53,6 +53,8 @@ class DashboardScreen extends StatelessWidget {
               const SizedBox(height: 24),
               _buildAnalyticsCard(context),
               const SizedBox(height: 24),
+              _buildWordLifterCard(context),
+              const SizedBox(height: 24),
               _buildReviewCard(context),
             ],
           ),
@@ -348,6 +350,66 @@ color: AppTheme.card(context),
                   SizedBox(height: 4),
                   Text(
                     'View detailed progress charts and trends',
+                    style: AppTextStyles.bodyMedium,
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.arrow_forward_ios_rounded,
+              color: AppColors.textHint,
+              size: 16,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWordLifterCard(BuildContext context) {
+    return InkWell(
+      onTap: () => context.push('/word-lifter'),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              AppColors.streakOrange.withValues(alpha: 0.12),
+              AppColors.xpGold.withValues(alpha: 0.06),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: AppColors.streakOrange.withValues(alpha: 0.3),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.streakOrange.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.fitness_center_rounded,
+                color: AppColors.streakOrange,
+                size: 28,
+              ),
+            ),
+            const SizedBox(width: 16),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Word Lifter 💪', style: AppTextStyles.heading3),
+                  SizedBox(height: 4),
+                  Text(
+                    'Gym mini-game — lift weights by translating words!',
                     style: AppTextStyles.bodyMedium,
                   ),
                 ],

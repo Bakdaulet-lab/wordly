@@ -7,6 +7,7 @@ import '../../providers/theme_provider.dart';
 import '../../providers/locale_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../providers/connectivity_provider.dart';
+import '../../providers/word_list_provider.dart';
 import '../../services/sync_service.dart';
 import '../../di/service_locator.dart';
 import '../../services/tts_service.dart';
@@ -36,8 +37,13 @@ class SettingsScreen extends StatelessWidget {
           _buildSectionHeader(context, l.translate('speechRate')),
           _buildSpeechRateCard(context),
           const SizedBox(height: 24),
+          _buildSectionHeader(context, 'Quiz Settings'),
+          _buildQuizModeCard(context),
+          const SizedBox(height: 24),
           _buildSectionHeader(context, l.translate('notifications')),
           _buildNotificationCard(context),
+          const SizedBox(height: 12),
+          _buildWotdNotificationCard(context),
           const SizedBox(height: 24),
           _buildSectionHeader(context, l.translate('dataSync')),
           _buildSyncCard(context),
@@ -281,6 +287,118 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
+  // ── Quiz mode settings ────────────────────────────────────────────
+
+  Widget _buildQuizModeCard(BuildContext context) {
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, _) {
+        return Card(
+          color: AppTheme.card(context),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Answer Mode',
+                  style: AppTextStyles.bodyLarge.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary(context),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Choose how you answer quiz questions',
+                  style: TextStyle(
+                    color: AppTheme.textSecondary(context),
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                RadioListTile<QuizMode>(
+                  value: QuizMode.multipleChoice,
+                  groupValue: themeProvider.quizMode,
+                  onChanged: (v) {
+                    if (v != null) themeProvider.setQuizMode(v);
+                  },
+                  title: Row(
+                    children: [
+                      Icon(
+                        Icons.grid_view_rounded,
+                        size: 20,
+                        color: !themeProvider.isTypingQuiz
+                            ? AppTheme.primary(context)
+                            : AppTheme.textHint(context),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Multiple Choice',
+                        style: TextStyle(
+                          color: AppTheme.textPrimary(context),
+                          fontWeight: !themeProvider.isTypingQuiz
+                              ? FontWeight.w600
+                              : FontWeight.normal,
+                        ),
+                      ),
+                    ],
+                  ),
+                  subtitle: Text(
+                    'Pick the correct translation from 4 options',
+                    style: TextStyle(
+                      color: AppTheme.textSecondary(context),
+                      fontSize: 12,
+                    ),
+                  ),
+                  activeColor: AppTheme.primary(context),
+                  visualDensity: VisualDensity.compact,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                RadioListTile<QuizMode>(
+                  value: QuizMode.typing,
+                  groupValue: themeProvider.quizMode,
+                  onChanged: (v) {
+                    if (v != null) themeProvider.setQuizMode(v);
+                  },
+                  title: Row(
+                    children: [
+                      Icon(
+                        Icons.keyboard_rounded,
+                        size: 20,
+                        color: themeProvider.isTypingQuiz
+                            ? AppTheme.primary(context)
+                            : AppTheme.textHint(context),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Typing',
+                        style: TextStyle(
+                          color: AppTheme.textPrimary(context),
+                          fontWeight: themeProvider.isTypingQuiz
+                              ? FontWeight.w600
+                              : FontWeight.normal,
+                        ),
+                      ),
+                    ],
+                  ),
+                  subtitle: Text(
+                    'Type the translation — minor typos accepted for long words',
+                    style: TextStyle(
+                      color: AppTheme.textSecondary(context),
+                      fontSize: 12,
+                    ),
+                  ),
+                  activeColor: AppTheme.primary(context),
+                  visualDensity: VisualDensity.compact,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   // ── Notification settings (original) ──────────────────────────────
 
   Widget _buildNotificationCard(BuildContext context) {
@@ -333,6 +451,76 @@ class SettingsScreen extends StatelessWidget {
                       );
                       if (picked != null) {
                         notifProvider.setReminderTime(picked);
+                      }
+                    },
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ── Word of the Day notification settings ──────────────────────────
+
+  Widget _buildWotdNotificationCard(BuildContext context) {
+    return Consumer2<NotificationProvider, WordListProvider>(
+      builder: (context, notifProvider, wordProvider, _) {
+        final words = wordProvider.allWords;
+        return Card(
+          color: AppTheme.card(context),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    'Word of the Day Notification',
+                    style: AppTextStyles.bodyLarge.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimary(context),
+                    ),
+                  ),
+                  subtitle: Text(
+                    notifProvider.wotdEnabled
+                        ? 'Daily word at ${_formatTime(notifProvider.wotdTime)}'
+                        : 'Get a new word every morning',
+                    style: TextStyle(color: AppTheme.textSecondary(context)),
+                  ),
+                  value: notifProvider.wotdEnabled,
+                  onChanged: (_) => notifProvider.toggleWotd(words),
+                  activeColor: AppTheme.primary(context),
+                ),
+                if (notifProvider.wotdEnabled) ...[
+                  const Divider(),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.access_time,
+                        color: AppTheme.primary(context),),
+                    title: Text(
+                      'Notification Time',
+                      style: TextStyle(
+                        color: AppTheme.textPrimary(context),
+                      ),
+                    ),
+                    trailing: Text(
+                      _formatTime(notifProvider.wotdTime),
+                      style: AppTextStyles.bodyLarge.copyWith(
+                        color: AppTheme.primary(context),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    onTap: () async {
+                      final picked = await showTimePicker(
+                        context: context,
+                        initialTime: notifProvider.wotdTime,
+                      );
+                      if (picked != null) {
+                        notifProvider.setWotdTime(picked, words);
                       }
                     },
                   ),

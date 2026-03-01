@@ -17,6 +17,12 @@ import '../../models/achievement_model.dart';
 import '../../di/service_locator.dart';
 import '../../repositories/quiz_repository.dart';
 import '../../services/tts_service.dart';
+import '../../utils/debouncer.dart';
+import '../../providers/theme_provider.dart';
+import '../../utils/levenshtein_distance.dart';
+import '../../widgets/typing_answer_field.dart';
+import '../../widgets/confetti_overlay.dart';
+import '../../services/logger_service.dart';
 
 class QuizScreen extends StatefulWidget {
   const QuizScreen({super.key});
@@ -28,6 +34,7 @@ class QuizScreen extends StatefulWidget {
 class _QuizScreenState extends State<QuizScreen> {
   bool _initialized = false;
   bool _isAdvancing = false;
+  final _answerDebouncer = Debouncer(delay: const Duration(milliseconds: 600));
 
   @override
   void didChangeDependencies() {
@@ -44,22 +51,78 @@ class _QuizScreenState extends State<QuizScreen> {
       // Words not loaded yet, attempt to load them first
       return;
     }
+    final userId = context.read<AuthProvider>().user?.id;
     // Defer to avoid notifyListeners during build phase
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<QuizProvider>().startQuiz(allWords);
+      context.read<QuizProvider>().startQuiz(allWords, userId: userId);
     });
   }
 
-  Future<void> _handleAnswer(int optionIndex) async {
-    if (_isAdvancing) return;
+  @override
+  void dispose() {
+    _answerDebouncer.dispose();
+    super.dispose();
+  }
+
+  bool _typingAnswerCorrect = false;
+  bool _typingAnswered = false;
+
+  Future<void> _handleTypingAnswer(String answer) async {
+    if (_isAdvancing || _typingAnswered) return;
+
+    final quizProvider = context.read<QuizProvider>();
+    final currentWord = quizProvider.currentWord;
+    if (currentWord == null) return;
 
     final userId = context.read<AuthProvider>().user?.id;
     if (userId == null) return;
 
     HapticFeedback.lightImpact();
 
+    final isCorrect = isTypingAnswerAccepted(
+      answer,
+      currentWord.russianTranslation,
+    );
+
+    setState(() {
+      _typingAnswerCorrect = isCorrect;
+      _typingAnswered = true;
+    });
+
+    await quizProvider.selectAnswer(
+      isCorrect ? quizProvider.currentOptions.indexWhere((o) => o.isCorrect) : 0,
+      userId,
+      overrideCorrect: isCorrect,
+    );
+
+    _isAdvancing = true;
+    await Future.delayed(
+      const Duration(milliseconds: AppConstants.quizAutoAdvanceDelayMs + 400),
+    );
+    if (!mounted) return;
+
+    _isAdvancing = false;
+    setState(() => _typingAnswered = false);
+    _advanceOrFinish(quizProvider, userId);
+  }
+
+  Future<void> _handleAnswer(int optionIndex) async {
+    if (_isAdvancing) return;
+    if (!_answerDebouncer.runImmediate(() {})) return; // debounce rapid taps
+
+    final userId = context.read<AuthProvider>().user?.id;
+    if (userId == null) return;
+
     final quizProvider = context.read<QuizProvider>();
     await quizProvider.selectAnswer(optionIndex, userId);
+
+    // Differentiate haptic feedback based on answer correctness
+    final option = quizProvider.currentOptions[optionIndex];
+    if (option.isCorrect) {
+      HapticFeedback.lightImpact();
+    } else {
+      HapticFeedback.heavyImpact();
+    }
 
     // Prevent double-taps during the visual feedback delay
     _isAdvancing = true;
@@ -99,7 +162,7 @@ class _QuizScreenState extends State<QuizScreen> {
           .then((result) {
         result.when(
           success: (_) {},
-          failure: (error) => debugPrint('timeout submitAnswer failed: ${error.userMessage}'),
+          failure: (error) => AppLogger.warning('timeout submitAnswer failed: ${error.userMessage}', tag: 'QuizScreen'),
         );
       }),);
     }
@@ -124,8 +187,42 @@ class _QuizScreenState extends State<QuizScreen> {
     final achievementProvider = context.read<AchievementProvider>();
     final profileProvider = context.read<ProfileProvider>();
 
+    // Capture old level before refresh to detect level-up
+    final oldLevel = profileProvider.level;
+
     // Await profile refresh to get latest XP (avoids stale data)
     await profileProvider.refreshProfile(userId);
+
+    final newLevel = profileProvider.level;
+
+    // Fire confetti on level-up
+    if (newLevel > oldLevel && mounted) {
+      ConfettiOverlay.maybeOf(context)?.play();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.arrow_upward_rounded, color: AppColors.xpGold, size: 24),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Level Up!', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                    Text('You reached Level $newLevel!', style: const TextStyle(color: Colors.white70)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: AppColors.xpGold,
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    }
 
     // Check XP-based achievements
     final a1 = await achievementProvider
@@ -160,6 +257,8 @@ class _QuizScreenState extends State<QuizScreen> {
 
   void _showAchievementSnackBar(AchievementModel? achievement) {
     if (achievement == null || !mounted) return;
+    // Fire confetti for achievement unlock
+    ConfettiOverlay.maybeOf(context)?.play();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -196,7 +295,8 @@ class _QuizScreenState extends State<QuizScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return ConfettiOverlay(
+      child: Scaffold(
       backgroundColor: AppTheme.background(context),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -307,91 +407,104 @@ class _QuizScreenState extends State<QuizScreen> {
               child: Column(
                 children: [
                   // Progress bar + timer row
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: quiz.totalQuestions > 0
-                                ? (quiz.currentIndex + 1) / quiz.totalQuestions
-                                : 0,
-                            backgroundColor: AppColors.textHint.withValues(alpha:0.2),
-                            valueColor: const AlwaysStoppedAnimation<Color>(
-                              AppColors.primary,
+                  Semantics(
+                    label: 'Quiz progress: question ${quiz.currentIndex + 1} of ${quiz.totalQuestions}',
+                    value: '${quiz.totalQuestions > 0 ? ((quiz.currentIndex + 1) * 100 ~/ quiz.totalQuestions) : 0}%',
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: quiz.totalQuestions > 0
+                                  ? (quiz.currentIndex + 1) / quiz.totalQuestions
+                                  : 0,
+                              backgroundColor: AppColors.textHint.withValues(alpha:0.2),
+                              valueColor: const AlwaysStoppedAnimation<Color>(
+                                AppColors.primary,
+                              ),
+                              minHeight: 6,
                             ),
-                            minHeight: 6,
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      _buildTimerBadge(quiz.timeRemaining, quiz.timedOut),
-                    ],
+                        const SizedBox(width: 12),
+                        _buildTimerBadge(quiz.timeRemaining, quiz.timedOut),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 48),
 
                   // Current word
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 40,
-                      horizontal: 24,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.card(context),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha:0.05),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        const Text(
-                          'What is the translation of:',
-                          style: AppTextStyles.bodyMedium,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          quiz.currentWord!.englishWord,
-                          style: AppTextStyles.heading1.copyWith(
-                            fontSize: 32,
-                            color: AppColors.primary,
+                  Semantics(
+                    label: 'Translate the word: ${quiz.currentWord!.englishWord}',
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 40,
+                        horizontal: 24,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.card(context),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha:0.05),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
                           ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 8),
-                        IconButton(
-                          onPressed: () => TtsService().speak(quiz.currentWord!.englishWord),
-                          icon: const Icon(Icons.volume_up_rounded),
-                          color: AppColors.primary.withValues(alpha: 0.7),
-                          iconSize: 24,
-                          tooltip: 'Listen',
-                        ),
-                      ],
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          const Text(
+                            'What is the translation of:',
+                            style: AppTextStyles.bodyMedium,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            quiz.currentWord!.englishWord,
+                            style: AppTextStyles.heading1.copyWith(
+                              fontSize: 32,
+                              color: AppColors.primary,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          Semantics(
+                            button: true,
+                            label: 'Listen to pronunciation of ${quiz.currentWord!.englishWord}',
+                            child: IconButton(
+                              onPressed: () => TtsService().speak(quiz.currentWord!.englishWord),
+                              icon: const Icon(Icons.volume_up_rounded),
+                              color: AppColors.primary.withValues(alpha: 0.7),
+                              iconSize: 24,
+                              tooltip: 'Listen',
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 32),
 
-                  // Option buttons
+                  // Option buttons or typing field depending on quiz mode
                   Expanded(
-                    child: ListView.builder(
-                      itemCount: quiz.currentOptions.length,
-                      itemBuilder: (context, index) {
-                        final option = quiz.currentOptions[index];
-                        return _buildOptionButton(
-                          context,
-                          option: option,
-                          index: index,
-                          isAnswered: quiz.isAnswered,
-                          selectedIndex: quiz.selectedOptionIndex,
-                          timedOut: quiz.timedOut,
-                        );
-                      },
-                    ),
+                    child: context.watch<ThemeProvider>().isTypingQuiz
+                        ? _buildTypingMode(quiz)
+                        : ListView.builder(
+                            itemCount: quiz.currentOptions.length,
+                            itemBuilder: (context, index) {
+                              final option = quiz.currentOptions[index];
+                              return _buildOptionButton(
+                                context,
+                                option: option,
+                                index: index,
+                                isAnswered: quiz.isAnswered,
+                                selectedIndex: quiz.selectedOptionIndex,
+                                timedOut: quiz.timedOut,
+                              );
+                            },
+                          ),
                   ),
 
                   // Handle timeout auto-advance
@@ -408,6 +521,23 @@ class _QuizScreenState extends State<QuizScreen> {
           );
         },
       ),
+    ),
+    );
+  }
+
+  Widget _buildTypingMode(QuizProvider quiz) {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: TypingAnswerField(
+          hint: 'Type the Russian translation...',
+          isAnswered: _typingAnswered || quiz.isAnswered,
+          isCorrect: _typingAnswerCorrect,
+          correctAnswer: quiz.currentWord?.russianTranslation,
+          enabled: !_isAdvancing && !quiz.timedOut,
+          onSubmitted: _handleTypingAnswer,
+        ),
+      ),
     );
   }
 
@@ -419,25 +549,31 @@ class _QuizScreenState extends State<QuizScreen> {
             ? AppColors.streakOrange
             : AppColors.textSecondary;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.timer_rounded, size: 16, color: color),
-          const SizedBox(width: 4),
-          Text(
-            timedOut ? '0s' : '${seconds}s',
-            style: AppTextStyles.bodySmall.copyWith(
-              color: color,
-              fontWeight: FontWeight.bold,
+    return Semantics(
+      label: timedOut
+          ? 'Time is up'
+          : 'Timer: $seconds seconds remaining',
+      liveRegion: isLow,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.timer_rounded, size: 16, color: color),
+            const SizedBox(width: 4),
+            Text(
+              timedOut ? '0s' : '${seconds}s',
+              style: AppTextStyles.bodySmall.copyWith(
+                color: color,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -466,50 +602,62 @@ class _QuizScreenState extends State<QuizScreen> {
       }
     }
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
-        onTap: isAnswered ? null : () => _handleAnswer(index),
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-          decoration: BoxDecoration(
-            color: backgroundColor,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: borderColor, width: 1.5),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha:0.03),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  option.text,
-                  style: AppTextStyles.bodyLarge.copyWith(
-                    color: textColor,
-                    fontWeight: FontWeight.w500,
+    final optionLetter = String.fromCharCode(65 + index);
+    final semanticState = isAnswered
+        ? (option.isCorrect
+            ? ', correct answer'
+            : (selectedIndex == index ? ', incorrect answer' : ''))
+        : '';
+
+    return Semantics(
+      button: !isAnswered,
+      label: 'Option $optionLetter: ${option.text}$semanticState',
+      enabled: !isAnswered,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: InkWell(
+          onTap: isAnswered ? null : () => _handleAnswer(index),
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+            decoration: BoxDecoration(
+              color: backgroundColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: borderColor, width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha:0.03),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    option.text,
+                    style: AppTextStyles.bodyLarge.copyWith(
+                      color: textColor,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
-              ),
-              if (isAnswered && option.isCorrect)
-                const Icon(
-                  Icons.check_circle_rounded,
-                  color: AppColors.successGreen,
-                  size: 24,
-                ),
-              if (isAnswered && selectedIndex == index && !option.isCorrect)
-                const Icon(
-                  Icons.cancel_rounded,
-                  color: AppColors.errorRed,
-                  size: 24,
-                ),
-            ],
+                if (isAnswered && option.isCorrect)
+                  const Icon(
+                    Icons.check_circle_rounded,
+                    color: AppColors.successGreen,
+                    size: 24,
+                  ),
+                if (isAnswered && selectedIndex == index && !option.isCorrect)
+                  const Icon(
+                    Icons.cancel_rounded,
+                    color: AppColors.errorRed,
+                    size: 24,
+                  ),
+              ],
+            ),
           ),
         ),
       ),

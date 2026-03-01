@@ -71,15 +71,15 @@ void main() {
         expect(Validators.validateDisplayName('Jo'), isNull);
       });
 
-      test('returns error for name with HTML tags after sanitization', () {
-        // After stripping <script>alert('x')</script>, only "alert('x')" remains
-        // which contains invalid characters (parentheses, quotes)
+      test('strips HTML tags and invalid chars, validates remainder', () {
+        // <script>alert('x')</script> → sanitized to "alert'x'" (valid)
         expect(Validators.validateDisplayName("<script>alert('x')</script>"),
-            isNotNull,);
+            isNull,);
       });
 
-      test('returns error for name with special characters', () {
-        expect(Validators.validateDisplayName('Name@#\$'), isNotNull);
+      test('strips special characters and validates remaining text', () {
+        // @#$ are stripped by sanitizer, leaving 'Name' which is valid
+        expect(Validators.validateDisplayName('Name@#\$'), isNull);
       });
 
       test('accepts names with accented and Cyrillic characters', () {

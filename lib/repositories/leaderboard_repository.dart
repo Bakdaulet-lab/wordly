@@ -2,6 +2,7 @@ import '../models/leaderboard_entry.dart';
 import '../models/friend_model.dart';
 import '../services/leaderboard_service.dart';
 import '../utils/api_guard.dart';
+import '../utils/performance_monitor.dart';
 import '../utils/result.dart';
 
 /// Repository wrapping [LeaderboardService] with error handling.
@@ -15,21 +16,21 @@ class LeaderboardRepository {
   Future<Result<List<LeaderboardEntry>>> getGlobalLeaderboard({
     int limit = 50,
   }) {
-    return apiGuard(() => _service.getGlobalLeaderboard(limit: limit));
+    return apiGuard(() => PerformanceMonitor.measure('LeaderboardRepo.getGlobal', () => _service.getGlobalLeaderboard(limit: limit)));
   }
 
   Future<Result<int>> getUserRank(String userId) {
-    return apiGuard(() => _service.getUserRank(userId));
+    return apiGuard(() => PerformanceMonitor.measure('LeaderboardRepo.getUserRank', () => _service.getUserRank(userId)));
   }
 
   Future<Result<List<LeaderboardEntry>>> getFriendsLeaderboard(String userId) {
-    return apiGuard(() => _service.getFriendsLeaderboard(userId));
+    return apiGuard(() => PerformanceMonitor.measure('LeaderboardRepo.getFriends', () => _service.getFriendsLeaderboard(userId)));
   }
 
   Future<Result<List<LeaderboardEntry>>> getWeeklyLeaderboard({
     int limit = 50,
   }) {
-    return apiGuard(() => _service.getWeeklyLeaderboard(limit: limit));
+    return apiGuard(() => PerformanceMonitor.measure('LeaderboardRepo.getWeekly', () => _service.getWeeklyLeaderboard(limit: limit)));
   }
 
   // ── Friend management ──────────────────────────────────────────────

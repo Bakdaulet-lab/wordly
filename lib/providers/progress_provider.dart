@@ -1,25 +1,22 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
 import '../models/word_model.dart';
 import '../di/service_locator.dart';
 import '../repositories/progress_repository.dart';
+import '../services/logger_service.dart';
+import 'base_provider.dart';
 
 /// Manages spaced-repetition progress and due-word counts.
-class ProgressProvider extends ChangeNotifier {
+class ProgressProvider extends BaseProvider {
   final ProgressRepository _progressRepo = sl<ProgressRepository>();
 
   List<Map<String, dynamic>> _reviewItems = [];
   int _currentIndex = 0;
   int _dueCount = 0;
-  bool _isLoading = false;
-  String? _errorMessage;
 
   List<Map<String, dynamic>> get reviewItems => _reviewItems;
   int get currentIndex => _currentIndex;
   int get dueCount => _dueCount;
-  bool get isLoading => _isLoading;
-  String? get errorMessage => _errorMessage;
   bool get isReviewComplete => _currentIndex >= _reviewItems.length;
 
   WordModel? get currentWord {
@@ -33,13 +30,12 @@ class ProgressProvider extends ChangeNotifier {
   }
 
   Future<void> loadDueWords(String userId) async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
+    setLoading(true);
+    clearError();
 
     final result = await _progressRepo.getWordsForReview(userId);
 
-    _isLoading = false;
+    setLoading(false);
 
     result.when(
       success: (items) {
@@ -49,8 +45,7 @@ class ProgressProvider extends ChangeNotifier {
         notifyListeners();
       },
       failure: (error) {
-        _errorMessage = error.userMessage;
-        notifyListeners();
+        setError(error.userMessage);
       },
     );
   }
@@ -84,9 +79,9 @@ class ProgressProvider extends ChangeNotifier {
         .then((result) {
       result.when(
         success: (_) {},
-        failure: (error) => debugPrint('answerReview failed: ${error.userMessage}'),
+        failure: (error) => AppLogger.warning('answerReview failed: ${error.userMessage}', tag: 'ProgressProvider'),
       );
-    }));
+    }),);
   }
 
   void reset() {

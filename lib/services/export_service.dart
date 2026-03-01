@@ -1,10 +1,15 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import '../services/logger_service.dart';
 import '../models/word_model.dart';
 import '../models/user_word_progress_model.dart';
 import '../models/daily_stats_model.dart';
 
-/// Service that exports user data in CSV format via the system share sheet.
+/// Service that exports user data in CSV and JSON formats via the system share sheet.
 class ExportService {
   /// Export word list as CSV.
   Future<void> exportWords(List<WordModel> words) async {
@@ -81,7 +86,50 @@ class ExportService {
         '${s.sessionDurationSeconds}',
       );
     }
+    await _shareAsFile(buffer.toString(), 'wordly_stats.csv');
+  }
+
+  /// Export daily stats as CSV via text share (fallback).
+  Future<void> exportStatsText(List<DailyStatsModel> stats) async {
+    final buffer = StringBuffer();
+    buffer.writeln(
+      'Date,Words Learned,Words Reviewed,'
+      'Correct Answers,Incorrect Answers,'
+      'XP Earned,Session Duration (seconds)',
+    );
+
+    for (final s in stats) {
+      buffer.writeln(
+        '${s.date.toIso8601String().split('T')[0]},'
+        '${s.wordsLearned},'
+        '${s.wordsReviewed},'
+        '${s.correctAnswers},'
+        '${s.incorrectAnswers},'
+        '${s.xpEarned},'
+        '${s.sessionDurationSeconds}',
+      );
+    }
     await _share(buffer.toString(), 'wordly_stats.csv');
+  }
+
+  /// Export user word list as JSON.
+  Future<void> exportWordsJson(List<WordModel> words) async {
+    final data = words
+        .map((w) => {
+              'id': w.id,
+              'english_word': w.englishWord,
+              'russian_translation': w.russianTranslation,
+              'category': w.category,
+              'difficulty_level': w.difficultyLevel,
+              'example_sentence': w.exampleSentence,
+            },)
+        .toList();
+    final json = const JsonEncoder.withIndent('  ').convert({
+      'exported_at': DateTime.now().toIso8601String(),
+      'word_count': words.length,
+      'words': data,
+    });
+    await _shareAsFile(json, 'wordly_words.json');
   }
 
   /// Export a combined summary of all user data.
@@ -153,8 +201,29 @@ class ExportService {
         subject: filename,
       );
     } catch (e) {
-      debugPrint('[ExportService] Share failed: $e');
+      AppLogger.error('Share failed: $e', tag: 'ExportService', error: e);
       rethrow;
+    }
+  }
+
+  /// Write content to a temp file and share via system share sheet.
+  Future<void> _shareAsFile(String content, String filename) async {
+    try {
+      if (kIsWeb) {
+        // On web, fall back to text sharing
+        await _share(content, filename);
+        return;
+      }
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/$filename');
+      await file.writeAsString(content);
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        subject: filename,
+      );
+    } catch (e) {
+      AppLogger.error('File share failed, falling back to text: $e', tag: 'ExportService', error: e);
+      await _share(content, filename);
     }
   }
 

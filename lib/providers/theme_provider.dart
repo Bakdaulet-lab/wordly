@@ -4,16 +4,21 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Supported theme modes that the user can select.
 enum AppThemeMode { system, light, dark }
 
-/// Provider for app-wide theme management and speech rate.
+/// Quiz answer mode: multiple choice or typing.
+enum QuizMode { multipleChoice, typing }
+
+/// Provider for app-wide theme management, speech rate, and quiz mode.
 ///
 /// Persists the user's choices to [SharedPreferences] and exposes
 /// the resolved [ThemeMode] for [MaterialApp.router].
 class ThemeProvider extends ChangeNotifier {
   static const String _prefKey = 'app_theme_mode';
   static const String _speechRatePrefKey = 'tts_speech_rate';
+  static const String _quizModePrefKey = 'quiz_mode';
 
   AppThemeMode _themeMode = AppThemeMode.system;
   double _speechRate = 0.45;
+  QuizMode _quizMode = QuizMode.multipleChoice;
   bool _initialized = false;
 
   AppThemeMode get themeMode => _themeMode;
@@ -21,6 +26,10 @@ class ThemeProvider extends ChangeNotifier {
 
   /// Current TTS speech rate (range 0.1 – 1.0).
   double get speechRate => _speechRate;
+
+  /// Current quiz answer mode.
+  QuizMode get quizMode => _quizMode;
+  bool get isTypingQuiz => _quizMode == QuizMode.typing;
 
   /// Resolved Flutter [ThemeMode] used by MaterialApp.
   ThemeMode get resolvedThemeMode => switch (_themeMode) {
@@ -42,6 +51,13 @@ class ThemeProvider extends ChangeNotifier {
     final storedRate = prefs.getDouble(_speechRatePrefKey);
     if (storedRate != null) {
       _speechRate = storedRate.clamp(0.1, 1.0);
+    }
+    final storedQuizMode = prefs.getString(_quizModePrefKey);
+    if (storedQuizMode != null) {
+      _quizMode = QuizMode.values.firstWhere(
+        (e) => e.name == storedQuizMode,
+        orElse: () => QuizMode.multipleChoice,
+      );
     }
     _initialized = true;
     notifyListeners();
@@ -66,6 +82,16 @@ class ThemeProvider extends ChangeNotifier {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble(_speechRatePrefKey, clamped);
+  }
+
+  /// Change quiz mode and persist.
+  Future<void> setQuizMode(QuizMode mode) async {
+    if (_quizMode == mode) return;
+    _quizMode = mode;
+    notifyListeners();
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_quizModePrefKey, mode.name);
   }
 
   /// Check if current resolved brightness is dark.

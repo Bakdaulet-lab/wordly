@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/profile_model.dart';
 import '../utils/input_sanitizer.dart';
+import '../utils/response_validator.dart';
 import 'interfaces/i_profile_service.dart';
 
 /// Supabase data-access layer for user profiles.
@@ -16,9 +17,14 @@ class ProfileService implements IProfileService {
         .select()
         .eq('id', userId)
         .limit(1);
-    final list = response as List;
-    if (list.isEmpty) return null;
-    return ProfileModel.fromJson(list.first);
+    final validated = ResponseValidator.validateAndMapSingleRow(
+      response, ProfileModel.fromJson,
+      context: 'getProfile',
+    );
+    return validated.when(
+      success: (profile) => profile,
+      failure: (error) => throw error,
+    );
   }
 
   @override

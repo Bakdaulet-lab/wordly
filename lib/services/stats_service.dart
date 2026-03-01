@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/daily_stats_model.dart';
 import '../models/profile_model.dart';
 import '../utils/date_helpers.dart';
+import '../utils/response_validator.dart';
 import 'interfaces/i_stats_service.dart';
 
 /// Supabase data-access layer for daily statistics and streak tracking.
@@ -23,7 +24,14 @@ class StatsService implements IStatsService {
         .eq('date', today)
         .limit(1);
 
-    final list = existing as List;
+    final validated = ResponseValidator.validateList(
+      existing,
+      context: 'getOrCreateTodayStats',
+    );
+    final list = validated.when(
+      success: (rows) => rows,
+      failure: (error) => throw error,
+    );
     if (list.isNotEmpty) {
       return DailyStatsModel.fromJson(list.first);
     }
@@ -34,8 +42,14 @@ class StatsService implements IStatsService {
       'date': today,
     }).select();
 
-    final inserted = response as List;
-    return DailyStatsModel.fromJson(inserted.first);
+    final insertValidated = ResponseValidator.validateAndMapList(
+      response, DailyStatsModel.fromJson,
+      context: 'getOrCreateTodayStats.insert',
+    );
+    return insertValidated.when(
+      success: (rows) => rows.first,
+      failure: (error) => throw error,
+    );
   }
 
   /// Increment a numeric field in today's stats.
@@ -54,7 +68,14 @@ class StatsService implements IStatsService {
         .eq('date', today)
         .limit(1);
 
-    final list = current as List;
+    final valValidated = ResponseValidator.validateList(
+      current,
+      context: 'incrementStat.read',
+    );
+    final list = valValidated.when(
+      success: (rows) => rows,
+      failure: (error) => throw error,
+    );
     final currentValue = list.isNotEmpty ? (list.first[field] as int? ?? 0) : 0;
 
     await _client
@@ -82,9 +103,14 @@ class StatsService implements IStatsService {
         .lte('date', end)
         .order('date', ascending: false);
 
-    return (response as List)
-        .map((json) => DailyStatsModel.fromJson(json))
-        .toList();
+    final validated = ResponseValidator.validateAndMapList(
+      response, DailyStatsModel.fromJson,
+      context: 'getStatsForRange',
+    );
+    return validated.when(
+      success: (stats) => stats,
+      failure: (error) => throw error,
+    );
   }
 
   /// Update streak based on last login date and return the new value.
@@ -96,10 +122,15 @@ class StatsService implements IStatsService {
         .eq('id', userId)
         .limit(1);
 
-    final list = profileResponse as List;
-    if (list.isEmpty) return 0;
-
-    final profile = ProfileModel.fromJson(list.first);
+    final validated = ResponseValidator.validateAndMapSingleRow(
+      profileResponse, ProfileModel.fromJson,
+      context: 'updateStreak',
+    );
+    final profile = validated.when(
+      success: (p) => p,
+      failure: (error) => throw error,
+    );
+    if (profile == null) return 0;
     final today = DateHelpers.today();
 
     int newStreak = profile.currentStreak;

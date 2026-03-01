@@ -1,14 +1,15 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
 import '../models/word_model.dart';
 import '../models/quiz_option_model.dart';
 import '../constants/app_constants.dart';
 import '../di/service_locator.dart';
 import '../repositories/quiz_repository.dart';
+import '../services/logger_service.dart';
+import 'base_provider.dart';
 
 /// Controls quiz flow: question generation, answer selection, and scoring.
-class QuizProvider extends ChangeNotifier {
+class QuizProvider extends BaseProvider {
   final QuizRepository _quizRepo = sl<QuizRepository>();
 
   List<WordModel> _quizWords = [];
@@ -19,8 +20,6 @@ class QuizProvider extends ChangeNotifier {
   List<QuizOptionModel> _currentOptions = [];
   int? _selectedOptionIndex;
   bool _isAnswered = false;
-  bool _isLoading = false;
-  String? _errorMessage;
   List<WordModel> _mistakes = [];
   int _timeRemaining = AppConstants.quizTimerSeconds;
   Timer? _questionTimer;
@@ -33,8 +32,6 @@ class QuizProvider extends ChangeNotifier {
   List<QuizOptionModel> get currentOptions => _currentOptions;
   int? get selectedOptionIndex => _selectedOptionIndex;
   bool get isAnswered => _isAnswered;
-  bool get isLoading => _isLoading;
-  String? get errorMessage => _errorMessage;
   List<WordModel> get mistakes => _mistakes;
   int get totalQuestions => _quizWords.length;
   bool get isQuizComplete => _currentIndex >= _quizWords.length;
@@ -44,16 +41,27 @@ class QuizProvider extends ChangeNotifier {
   WordModel? get currentWord =>
       _currentIndex < _quizWords.length ? _quizWords[_currentIndex] : null;
 
-  void startQuiz(List<WordModel> allWords) {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
+  /// Start a quiz prioritizing SM-2 due words, then backfilling with new words.
+  Future<void> startQuiz(List<WordModel> allWords, {String? userId}) async {
+    setLoading(true);
+    clearError();
 
     _allWords = allWords;
-    _quizWords = _quizRepo.pickQuizWords(
-      allWords,
-      count: AppConstants.quizQuestionsPerSession,
-    );
+
+    // Prefer SM-2 due words when userId is available
+    if (userId != null) {
+      _quizWords = await _quizRepo.getQuizWords(
+        userId: userId,
+        allWords: allWords,
+        count: AppConstants.quizQuestionsPerSession,
+      );
+    } else {
+      _quizWords = _quizRepo.pickQuizWords(
+        allWords,
+        count: AppConstants.quizQuestionsPerSession,
+      );
+    }
+
     _currentIndex = 0;
     _score = 0;
     _totalXpEarned = 0;
@@ -64,8 +72,7 @@ class QuizProvider extends ChangeNotifier {
     _generateOptions();
     _startTimer();
 
-    _isLoading = false;
-    notifyListeners();
+    setLoading(false);
   }
 
   void _generateOptions() {
@@ -105,7 +112,7 @@ class QuizProvider extends ChangeNotifier {
     _questionTimer = null;
   }
 
-  Future<void> selectAnswer(int optionIndex, String userId) async {
+  Future<void> selectAnswer(int optionIndex, String userId, {bool? overrideCorrect}) async {
     if (_isAnswered) return;
 
     _stopTimer();
@@ -113,7 +120,7 @@ class QuizProvider extends ChangeNotifier {
     _isAnswered = true;
 
     final option = _currentOptions[optionIndex];
-    final isCorrect = option.isCorrect;
+    final isCorrect = overrideCorrect ?? option.isCorrect;
     final wordId = currentWord!.id;
 
     if (isCorrect) {
@@ -133,9 +140,9 @@ class QuizProvider extends ChangeNotifier {
         .then((result) {
       result.when(
         success: (_) {},
-        failure: (error) => debugPrint('submitAnswer failed: ${error.userMessage}'),
+        failure: (error) => AppLogger.warning('submitAnswer failed: ${error.userMessage}', tag: 'QuizProvider'),
       );
-    }));
+    }),);
   }
 
   void nextQuestion() {
@@ -169,8 +176,8 @@ class QuizProvider extends ChangeNotifier {
     result.when(
       success: (_) {},
       failure: (error) {
-        _errorMessage = error.userMessage;
-        debugPrint('finishQuiz failed: ${error.userMessage}');
+        setError(error.userMessage, notify: false);
+        AppLogger.warning('finishQuiz failed: ${error.userMessage}', tag: 'QuizProvider');
       },
     );
 

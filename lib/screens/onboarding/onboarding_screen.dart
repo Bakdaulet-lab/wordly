@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
 import '../../constants/app_theme.dart';
+import '../../services/logger_service.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -20,34 +21,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     _OnboardingPage(
       icon: Icons.menu_book_rounded,
       color: AppColors.primary,
-      title: 'Learn New Words',
+      title: 'Learn Words',
       description:
           'Browse a rich library of English words with Russian translations, '
-          'example sentences, and difficulty levels.',
+          'example sentences, and difficulty levels. Bookmark your favorites!',
     ),
     _OnboardingPage(
       icon: Icons.quiz_rounded,
       color: AppColors.streakOrange,
-      title: 'Test Your Knowledge',
+      title: 'Take Quizzes',
       description:
-          'Take quizzes to practice vocabulary. Choose difficulty levels '
-          'or quiz on all words. Earn XP for every answer!',
+          'Test your vocabulary with multiple-choice or typing quizzes. '
+          'Choose difficulty levels, earn XP, and compete on leaderboards!',
     ),
     _OnboardingPage(
-      icon: Icons.replay_rounded,
+      icon: Icons.insights_rounded,
       color: AppColors.successGreen,
-      title: 'Spaced Repetition',
+      title: 'Track Progress',
       description:
-          'Our smart review system brings back words at the perfect time '
-          'so you remember them long-term.',
-    ),
-    _OnboardingPage(
-      icon: Icons.emoji_events_rounded,
-      color: AppColors.xpGold,
-      title: 'Level Up & Earn Badges',
-      description:
-          'Gain XP, level up, maintain streaks, and unlock achievements. '
-          'Set daily goals and track your progress!',
+          'Smart spaced repetition keeps words in your memory. View analytics, '
+          'maintain streaks, level up, and unlock achievements!',
     ),
   ];
 
@@ -56,7 +49,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('onboarding_complete', true);
     } catch (e) {
-      debugPrint('Failed to save onboarding state: $e');
+      AppLogger.error('Failed to save onboarding state: $e', tag: 'Onboarding', error: e);
     }
     if (mounted) {
       context.go('/login');

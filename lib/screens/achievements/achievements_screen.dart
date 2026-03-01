@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
-import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
 import '../../constants/app_theme.dart';
 import '../../models/achievement_model.dart';
@@ -24,8 +23,8 @@ class AchievementsScreen extends StatelessWidget {
       body: Consumer<AchievementProvider>(
         builder: (context, achievementProvider, child) {
           if (achievementProvider.isLoading) {
-            return const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
+            return Center(
+              child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary),
             );
           }
 
@@ -36,16 +35,16 @@ class AchievementsScreen extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.error_outline,
                       size: 64,
-                      color: AppColors.errorRed,
+                      color: Theme.of(context).colorScheme.error,
                     ),
                     const SizedBox(height: 16),
                     Text(
                       achievementProvider.errorMessage!,
                       style: AppTextStyles.bodyMedium.copyWith(
-                        color: AppColors.errorRed,
+                        color: Theme.of(context).colorScheme.error,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -60,7 +59,7 @@ class AchievementsScreen extends StatelessWidget {
                       icon: const Icon(Icons.refresh_rounded, size: 18),
                       label: const Text('Retry'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
+                        backgroundColor: Theme.of(context).colorScheme.primary,
                         foregroundColor: Colors.white,
                       ),
                     ),
@@ -77,16 +76,16 @@ class AchievementsScreen extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.emoji_events_outlined,
                     size: 64,
-                    color: AppColors.textHint,
+                    color: Theme.of(context).colorScheme.outline,
                   ),
                   const SizedBox(height: 16),
                   Text(
                     'No achievements available yet',
                     style: AppTextStyles.bodyLarge.copyWith(
-                      color: AppColors.textHint,
+                      color: Theme.of(context).colorScheme.outline,
                     ),
                   ),
                 ],
@@ -147,98 +146,103 @@ class AchievementsScreen extends StatelessWidget {
   Widget _buildAchievementCard(BuildContext context, AchievementModel achievement, bool isUnlocked) {
     final iconData = _getIconData(achievement.iconName);
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isUnlocked
-            ? AppTheme.card(context)
-            : AppTheme.card(context).withValues(alpha:0.7),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
+    return Semantics(
+      label: '${achievement.name} achievement, '
+          '${isUnlocked ? 'unlocked' : 'locked'}. '
+          '${achievement.description}',
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
           color: isUnlocked
-              ? AppColors.xpGold.withValues(alpha:0.5)
-              : AppColors.textHint.withValues(alpha:0.15),
-          width: isUnlocked ? 2 : 1,
+              ? AppTheme.card(context)
+              : AppTheme.card(context).withValues(alpha:0.7),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isUnlocked
+                ? AppTheme.xpGold.withValues(alpha:0.5)
+                : Theme.of(context).colorScheme.outline.withValues(alpha:0.15),
+            width: isUnlocked ? 2 : 1,
+          ),
+          boxShadow: isUnlocked
+              ? [
+                  BoxShadow(
+                    color: AppTheme.xpGold.withValues(alpha:0.15),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha:0.03),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
         ),
-        boxShadow: isUnlocked
-            ? [
-                BoxShadow(
-                  color: AppColors.xpGold.withValues(alpha:0.15),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ]
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha:0.03),
-                  blurRadius: 4,
-                  offset: const Offset(0, 1),
-                ),
-              ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: isUnlocked
-                      ? AppColors.xpGold.withValues(alpha:0.15)
-                      : AppColors.textHint.withValues(alpha:0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  iconData,
-                  size: 28,
-                  color: isUnlocked ? AppColors.xpGold : AppColors.textHint,
-                ),
-              ),
-              if (!isUnlocked)
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: Container(
-                    width: 20,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      color: AppColors.textHint.withValues(alpha:0.8),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.lock_rounded,
-                      size: 12,
-                      color: Colors.white,
-                    ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: isUnlocked
+                        ? AppTheme.xpGold.withValues(alpha:0.15)
+                        : Theme.of(context).colorScheme.outline.withValues(alpha:0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    iconData,
+                    size: 28,
+                    color: isUnlocked ? AppTheme.xpGold : Theme.of(context).colorScheme.outline,
                   ),
                 ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            achievement.name,
-            style: AppTextStyles.bodyLarge.copyWith(
-              fontWeight: FontWeight.w600,
-              color: isUnlocked ? AppColors.textPrimary : AppColors.textHint,
+                if (!isUnlocked)
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.outline.withValues(alpha:0.8),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.lock_rounded,
+                        size: 12,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+              ],
             ),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            achievement.description,
-            style: AppTextStyles.caption.copyWith(
-              color: isUnlocked ? AppColors.textSecondary : AppColors.textHint,
+            const SizedBox(height: 12),
+            Text(
+              achievement.name,
+              style: AppTextStyles.bodyLarge.copyWith(
+                fontWeight: FontWeight.w600,
+                color: isUnlocked ? Theme.of(context).colorScheme.onSurface : Theme.of(context).colorScheme.outline,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
+            const SizedBox(height: 4),
+            Text(
+              achievement.description,
+              style: AppTextStyles.caption.copyWith(
+                color: isUnlocked ? Theme.of(context).colorScheme.onSurfaceVariant : Theme.of(context).colorScheme.outline,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
       ),
     );
   }

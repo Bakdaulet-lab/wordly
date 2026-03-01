@@ -1,6 +1,7 @@
-import 'package:flutter/foundation.dart' show kIsWeb, debugPrint, defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
+import '../services/logger_service.dart';
 
 /// Local SQLite database for offline-first caching.
 ///
@@ -36,7 +37,7 @@ class LocalDatabase {
       return _db!;
     } catch (e) {
       _initFailed = true;
-      debugPrint('[LocalDatabase] Failed to open database: $e');
+      AppLogger.error('Failed to open database: $e', tag: 'LocalDatabase', error: e);
       rethrow;
     }
   }

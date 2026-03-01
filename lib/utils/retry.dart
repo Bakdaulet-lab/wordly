@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:math';
-import 'package:flutter/foundation.dart';
+import '../services/logger_service.dart';
 import 'result.dart';
 
 /// Retries an async operation with exponential backoff.
@@ -44,9 +44,10 @@ Future<T> retryWithBackoff<T>({
         final delay = baseDelay + jitter;
         final capped = delay > maxDelay ? maxDelay : delay;
 
-        debugPrint(
-          '[Retry] Attempt ${attempt + 1}/$maxAttempts failed, '
+        AppLogger.warning(
+          'Attempt ${attempt + 1}/$maxAttempts failed, '
           'retrying in ${capped.inMilliseconds}ms: $e',
+          tag: 'Retry',
         );
         await Future.delayed(capped);
       }

@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_word_progress_model.dart';
+import '../utils/response_validator.dart';
 import '../utils/sm2_algorithm.dart';
 import '../constants/app_constants.dart';
 import 'interfaces/i_progress_service.dart';
@@ -21,7 +22,14 @@ class ProgressService implements IProgressService {
         .lte('next_review_date', today)
         .order('next_review_date', ascending: true)
         .limit(limit);
-    return List<Map<String, dynamic>>.from(response);
+    final validated = ResponseValidator.validateList(
+      response,
+      context: 'getWordsForReview',
+    );
+    return validated.when(
+      success: (rows) => rows,
+      failure: (error) => throw error,
+    );
   }
 
   /// Get progress for a specific user-word pair.
@@ -33,9 +41,14 @@ class ProgressService implements IProgressService {
         .eq('user_id', userId)
         .eq('word_id', wordId)
         .limit(1);
-    final list = response as List;
-    if (list.isEmpty) return null;
-    return UserWordProgressModel.fromJson(list.first);
+    final validated = ResponseValidator.validateAndMapSingleRow(
+      response, UserWordProgressModel.fromJson,
+      context: 'getProgress',
+    );
+    return validated.when(
+      success: (progress) => progress,
+      failure: (error) => throw error,
+    );
   }
 
   /// Create or update progress after a quiz/review answer.
@@ -97,6 +110,13 @@ class ProgressService implements IProgressService {
         .select('id')
         .eq('user_id', userId)
         .lte('next_review_date', today);
-    return (response as List).length;
+    final validated = ResponseValidator.validateList(
+      response,
+      context: 'countDueWords',
+    );
+    return validated.when(
+      success: (rows) => rows.length,
+      failure: (error) => throw error,
+    );
   }
 }

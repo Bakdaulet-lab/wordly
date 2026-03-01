@@ -6,6 +6,7 @@ import '../../constants/app_text_styles.dart';
 import '../../constants/app_theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/progress_provider.dart';
+import '../../utils/debouncer.dart';
 
 class ReviewScreen extends StatefulWidget {
   const ReviewScreen({super.key});
@@ -16,6 +17,13 @@ class ReviewScreen extends StatefulWidget {
 
 class _ReviewScreenState extends State<ReviewScreen> {
   bool _initialized = false;
+  final _reviewDebouncer = Debouncer(delay: const Duration(milliseconds: 600));
+
+  @override
+  void dispose() {
+    _reviewDebouncer.dispose();
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
@@ -33,6 +41,8 @@ class _ReviewScreenState extends State<ReviewScreen> {
   }
 
   Future<void> _handleAnswer(bool knewIt) async {
+    if (!_reviewDebouncer.runImmediate(() {})) return;
+
     final userId = context.read<AuthProvider>().user?.id;
     if (userId == null) return;
 

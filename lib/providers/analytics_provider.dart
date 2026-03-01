@@ -1,7 +1,7 @@
-import 'package:flutter/material.dart';
 import '../models/daily_stats_model.dart';
 import '../di/service_locator.dart';
 import '../repositories/stats_repository.dart';
+import 'base_provider.dart';
 
 /// Time range for analytics charts.
 enum AnalyticsPeriod {
@@ -65,17 +65,13 @@ class AnalyticsSummary {
 }
 
 /// Provides aggregated analytics data for charts and summaries.
-class AnalyticsProvider extends ChangeNotifier {
+class AnalyticsProvider extends BaseProvider {
   final StatsRepository _statsRepo = sl<StatsRepository>();
 
   List<DailyStatsModel> _allStats = [];
   AnalyticsPeriod _selectedPeriod = AnalyticsPeriod.week;
-  bool _isLoading = false;
-  String? _errorMessage;
 
   AnalyticsPeriod get selectedPeriod => _selectedPeriod;
-  bool get isLoading => _isLoading;
-  String? get errorMessage => _errorMessage;
 
   /// Filtered stats for the selected period.
   List<DailyStatsModel> get filteredStats {
@@ -166,7 +162,7 @@ class AnalyticsProvider extends ChangeNotifier {
 
   /// Builds chart points filling in missing days with 0.
   List<ChartDataPoint> _buildDailyPoints(
-      double Function(DailyStatsModel) extractor) {
+      double Function(DailyStatsModel) extractor,) {
     final now = DateTime.now();
     final days = _selectedPeriod.days;
     final statsMap = <String, DailyStatsModel>{};
@@ -187,9 +183,8 @@ class AnalyticsProvider extends ChangeNotifier {
 
   /// Load analytics data from repository.
   Future<void> loadAnalytics(String userId) async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
+    setLoading(true);
+    clearError();
 
     final now = DateTime.now();
     final startDate = now.subtract(const Duration(days: 30));
@@ -201,12 +196,11 @@ class AnalyticsProvider extends ChangeNotifier {
         _allStats = stats;
       },
       failure: (error) {
-        _errorMessage = error.userMessage;
+        setError(error.userMessage, notify: false);
       },
     );
 
-    _isLoading = false;
-    notifyListeners();
+    setLoading(false);
   }
 
   void setPeriod(AnalyticsPeriod period) {

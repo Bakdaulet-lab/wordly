@@ -353,3 +353,50 @@ CREATE INDEX IF NOT EXISTS idx_profiles_xp_rank
 CREATE POLICY "Authenticated users can view profiles for leaderboard"
   ON public.profiles FOR SELECT
   USING (auth.role() = 'authenticated');
+
+
+-- ============================================================
+-- 11. RPC: AWARD XP (atomic read-then-write)
+-- ============================================================
+-- Atomically adds XP to a user's profile and recalculates their level
+-- based on the same threshold table used in the Dart client.
+-- Called from XpService via: client.rpc('award_xp', params: {...})
+CREATE OR REPLACE FUNCTION public.award_xp(
+  p_user_id UUID,
+  p_amount  INT
+)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_new_xp  INT;
+  v_level   INT;
+  v_thresholds INT[] := ARRAY[0, 100, 250, 500, 1000, 1750, 2800, 4200, 6000, 8500];
+BEGIN
+  -- Atomically increment total_xp and return the new value
+  UPDATE public.profiles
+     SET total_xp = total_xp + p_amount
+   WHERE id = p_user_id
+  RETURNING total_xp INTO v_new_xp;
+
+  -- If the user doesn't exist, do nothing
+  IF NOT FOUND THEN
+    RETURN;
+  END IF;
+
+  -- Calculate level from the updated XP (mirrors XpCalculator.levelFromXp)
+  v_level := 1;
+  FOR i IN REVERSE array_upper(v_thresholds, 1) .. 1 LOOP
+    IF v_new_xp >= v_thresholds[i] THEN
+      v_level := i;
+      EXIT;
+    END IF;
+  END LOOP;
+
+  -- Update the level column
+  UPDATE public.profiles
+     SET level = v_level
+   WHERE id = p_user_id;
+END;
+$$;

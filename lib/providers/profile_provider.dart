@@ -1,20 +1,16 @@
-import 'package:flutter/material.dart';
 import '../models/profile_model.dart';
 import '../di/service_locator.dart';
 import '../repositories/profile_repository.dart';
 import '../utils/xp_calculator.dart';
+import 'base_provider.dart';
 
 /// Manages the current user's profile data and XP/level display.
-class ProfileProvider extends ChangeNotifier {
+class ProfileProvider extends BaseProvider {
   final ProfileRepository _profileRepo = sl<ProfileRepository>();
 
   ProfileModel? _profile;
-  bool _isLoading = false;
-  String? _errorMessage;
 
   ProfileModel? get profile => _profile;
-  bool get isLoading => _isLoading;
-  String? get errorMessage => _errorMessage;
 
   int get level => _profile?.level ?? 1;
   int get totalXp => _profile?.totalXp ?? 0;
@@ -26,12 +22,11 @@ class ProfileProvider extends ChangeNotifier {
   int? get xpForNextLevel => XpCalculator.xpForNextLevel(level);
 
   Future<void> loadProfile(String userId) async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
+    setLoading(true);
+    setError(null, notify: false);
 
     final result = await _profileRepo.getProfile(userId);
-    _isLoading = false;
+    setLoading(false);
 
     result.when(
       success: (profile) {
@@ -39,8 +34,7 @@ class ProfileProvider extends ChangeNotifier {
         notifyListeners();
       },
       failure: (error) {
-        _errorMessage = error.userMessage;
-        notifyListeners();
+        setError(error.userMessage);
       },
     );
   }
@@ -53,8 +47,7 @@ class ProfileProvider extends ChangeNotifier {
         notifyListeners();
       },
       failure: (error) {
-        _errorMessage = error.userMessage;
-        notifyListeners();
+        setError(error.userMessage);
       },
     );
   }
@@ -69,8 +62,33 @@ class ProfileProvider extends ChangeNotifier {
         return true;
       },
       failure: (error) {
-        _errorMessage = error.userMessage;
+        setError(error.userMessage);
+        return false;
+      },
+    );
+  }
+
+  /// Reset all learning progress (XP, streaks, level).
+  Future<bool> resetProgress(String userId) async {
+    final result = await _profileRepo.updateProfile(userId, {
+      'total_xp': 0,
+      'level': 1,
+      'current_streak': 0,
+      'longest_streak': 0,
+    });
+    return result.when(
+      success: (_) {
+        _profile = _profile?.copyWith(
+          totalXp: 0,
+          level: 1,
+          currentStreak: 0,
+          longestStreak: 0,
+        );
         notifyListeners();
+        return true;
+      },
+      failure: (error) {
+        setError(error.userMessage);
         return false;
       },
     );
@@ -78,7 +96,6 @@ class ProfileProvider extends ChangeNotifier {
 
   void clear() {
     _profile = null;
-    _errorMessage = null;
-    notifyListeners();
+    setError(null);
   }
 }

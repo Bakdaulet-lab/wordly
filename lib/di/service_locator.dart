@@ -18,6 +18,7 @@ import '../services/sync_service.dart';
 import '../services/notification_service.dart';
 import '../services/leaderboard_service.dart';
 import '../services/offline_cache_service.dart';
+import '../services/word_cache_service.dart';
 import '../services/export_service.dart';
 
 import '../services/interfaces/interfaces.dart';
@@ -102,6 +103,11 @@ void setupServiceLocator() {
       sl<LocalDatabase>(),
       sl<ConnectivityService>(),
     ),
+  );
+
+  // ── Word cache service ────────────────────────────────────────────
+  sl.registerLazySingleton<WordCacheService>(
+    () => WordCacheService(sl<LocalDatabase>()),
   );
 
   // ── Export service ────────────────────────────────────────────────

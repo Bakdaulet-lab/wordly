@@ -1,14 +1,14 @@
-import 'package:flutter/material.dart';
 import '../models/leaderboard_entry.dart';
 import '../models/friend_model.dart';
 import '../di/service_locator.dart';
 import '../repositories/leaderboard_repository.dart';
+import 'base_provider.dart';
 
 /// Leaderboard tab type for the UI.
 enum LeaderboardTab { global, weekly, friends }
 
 /// Provider for leaderboard and friend management state.
-class LeaderboardProvider extends ChangeNotifier {
+class LeaderboardProvider extends BaseProvider {
   final LeaderboardRepository _repo = sl<LeaderboardRepository>();
 
   // ── State ──────────────────────────────────────────────────────────
@@ -21,8 +21,6 @@ class LeaderboardProvider extends ChangeNotifier {
   List<FriendModel> _pendingRequests = [];
   List<Map<String, dynamic>> _searchResults = [];
 
-  bool _isLoading = false;
-  String? _errorMessage;
   LeaderboardTab _activeTab = LeaderboardTab.global;
 
   // ── Getters ────────────────────────────────────────────────────────
@@ -35,8 +33,6 @@ class LeaderboardProvider extends ChangeNotifier {
   List<FriendModel> get pendingRequests => _pendingRequests;
   List<Map<String, dynamic>> get searchResults => _searchResults;
 
-  bool get isLoading => _isLoading;
-  String? get errorMessage => _errorMessage;
   LeaderboardTab get activeTab => _activeTab;
 
   List<LeaderboardEntry> get activeEntries => switch (_activeTab) {
@@ -53,9 +49,8 @@ class LeaderboardProvider extends ChangeNotifier {
   // ── Leaderboard loading ────────────────────────────────────────────
 
   Future<void> loadLeaderboard(String userId) async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
+    setLoading(true);
+    clearError();
 
     final results = await Future.wait([
       _repo.getGlobalLeaderboard(),
@@ -67,25 +62,28 @@ class LeaderboardProvider extends ChangeNotifier {
     results[0].when(
       success: (data) =>
           _globalEntries = data as List<LeaderboardEntry>,
-      failure: (e) => _errorMessage = e.userMessage,
+      failure: (e) => setError(e.userMessage, notify: false),
     );
     results[1].when(
       success: (data) =>
           _weeklyEntries = data as List<LeaderboardEntry>,
-      failure: (e) => _errorMessage ??= e.userMessage,
+      failure: (e) {
+        if (errorMessage == null) setError(e.userMessage, notify: false);
+      },
     );
     results[2].when(
       success: (data) =>
           _friendsEntries = data as List<LeaderboardEntry>,
-      failure: (e) => _errorMessage ??= e.userMessage,
+      failure: (e) {
+        if (errorMessage == null) setError(e.userMessage, notify: false);
+      },
     );
     results[3].when(
       success: (data) => _userRank = data as int,
       failure: (_) {},
     );
 
-    _isLoading = false;
-    notifyListeners();
+    setLoading(false);
   }
 
   // ── Friends management ─────────────────────────────────────────────
@@ -94,13 +92,15 @@ class LeaderboardProvider extends ChangeNotifier {
     final friendsResult = await _repo.getFriends(userId);
     friendsResult.when(
       success: (data) => _friends = data,
-      failure: (e) => _errorMessage = e.userMessage,
+      failure: (e) => setError(e.userMessage, notify: false),
     );
 
     final pendingResult = await _repo.getPendingRequests(userId);
     pendingResult.when(
       success: (data) => _pendingRequests = data,
-      failure: (e) => _errorMessage ??= e.userMessage,
+      failure: (e) {
+        if (errorMessage == null) setError(e.userMessage, notify: false);
+      },
     );
 
     notifyListeners();
@@ -116,7 +116,7 @@ class LeaderboardProvider extends ChangeNotifier {
     final result = await _repo.searchUsers(query, currentUserId);
     result.when(
       success: (data) => _searchResults = data,
-      failure: (e) => _errorMessage = e.userMessage,
+      failure: (e) => setError(e.userMessage, notify: false),
     );
     notifyListeners();
   }

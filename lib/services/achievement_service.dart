@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/achievement_model.dart';
 import '../models/user_achievement_model.dart';
+import '../utils/response_validator.dart';
 import 'interfaces/i_achievement_service.dart';
 
 /// Supabase data-access layer for achievements and unlock tracking.
@@ -15,9 +16,14 @@ class AchievementService implements IAchievementService {
         .from('achievements')
         .select()
         .order('id', ascending: true);
-    return (response as List)
-        .map((json) => AchievementModel.fromJson(json))
-        .toList();
+    final validated = ResponseValidator.validateAndMapList(
+      response, AchievementModel.fromJson,
+      context: 'fetchAllAchievements',
+    );
+    return validated.when(
+      success: (list) => list,
+      failure: (error) => throw error,
+    );
   }
 
   @override
@@ -26,9 +32,14 @@ class AchievementService implements IAchievementService {
         .from('user_achievements')
         .select()
         .eq('user_id', userId);
-    return (response as List)
-        .map((json) => UserAchievementModel.fromJson(json))
-        .toList();
+    final validated = ResponseValidator.validateAndMapList(
+      response, UserAchievementModel.fromJson,
+      context: 'fetchUserAchievements',
+    );
+    return validated.when(
+      success: (list) => list,
+      failure: (error) => throw error,
+    );
   }
 
   /// Check if a condition is met and unlock the achievement if not already earned.
@@ -45,9 +56,16 @@ class AchievementService implements IAchievementService {
         .select()
         .eq('condition_type', conditionType);
 
-    for (final achJson in achievements) {
-      final achievement = AchievementModel.fromJson(achJson);
+    final achValidated = ResponseValidator.validateAndMapList(
+      achievements, AchievementModel.fromJson,
+      context: 'checkAndUnlock.achievements',
+    );
+    final achList = achValidated.when(
+      success: (list) => list,
+      failure: (error) => throw error,
+    );
 
+    for (final achievement in achList) {
       if (currentValue >= achievement.conditionValue) {
         // Check if already unlocked
         final existing = await _client
@@ -57,7 +75,16 @@ class AchievementService implements IAchievementService {
             .eq('achievement_id', achievement.id)
             .limit(1);
 
-        if ((existing as List).isEmpty) {
+        final existValidated = ResponseValidator.validateList(
+          existing,
+          context: 'checkAndUnlock.existing',
+        );
+        final existList = existValidated.when(
+          success: (rows) => rows,
+          failure: (error) => throw error,
+        );
+
+        if (existList.isEmpty) {
           // Unlock it
           await _client.from('user_achievements').insert({
             'user_id': userId,

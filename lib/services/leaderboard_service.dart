@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/leaderboard_entry.dart';
 import '../models/friend_model.dart';
+import '../utils/response_validator.dart';
 
 /// Service for leaderboard queries and friend management.
 ///
@@ -21,7 +22,14 @@ class LeaderboardService {
         .order('total_xp', ascending: false)
         .limit(limit);
 
-    final list = response as List;
+    final validated = ResponseValidator.validateList(
+      response,
+      context: 'getGlobalLeaderboard',
+    );
+    final list = validated.when(
+      success: (rows) => rows,
+      failure: (error) => throw error,
+    );
     return List.generate(list.length, (i) {
       return LeaderboardEntry.fromJson(list[i], rank: i + 1);
     });
@@ -36,7 +44,14 @@ class LeaderboardService {
         .eq('id', userId)
         .limit(1);
 
-    final list = userResponse as List;
+    final userValidated = ResponseValidator.validateList(
+      userResponse,
+      context: 'getUserRank.user',
+    );
+    final list = userValidated.when(
+      success: (rows) => rows,
+      failure: (error) => throw error,
+    );
     if (list.isEmpty) return 0;
     final userXp = list.first['total_xp'] as int? ?? 0;
 
@@ -44,7 +59,14 @@ class LeaderboardService {
         .from('profiles')
         .select('id')
         .gt('total_xp', userXp);
-    return (countResponse as List).length + 1;
+    final countValidated = ResponseValidator.validateList(
+      countResponse,
+      context: 'getUserRank.count',
+    );
+    return countValidated.when(
+      success: (rows) => rows.length + 1,
+      failure: (error) => throw error,
+    );
   }
 
   // ── Friends leaderboard ────────────────────────────────────────────
@@ -58,9 +80,14 @@ class LeaderboardService {
         .eq('user_id', userId)
         .eq('status', 'accepted');
 
-    final friendIds = (friendsResponse as List)
-        .map((r) => r['friend_id'] as String)
-        .toList();
+    final friendsValidated = ResponseValidator.validateList(
+      friendsResponse,
+      context: 'getFriendsLeaderboard.friends',
+    );
+    final friendIds = friendsValidated.when(
+      success: (rows) => rows.map((r) => r['friend_id'] as String).toList(),
+      failure: (error) => throw error,
+    );
 
     // Include self
     friendIds.add(userId);
@@ -73,7 +100,14 @@ class LeaderboardService {
         .inFilter('id', friendIds)
         .order('total_xp', ascending: false);
 
-    final list = response as List;
+    final validated = ResponseValidator.validateList(
+      response,
+      context: 'getFriendsLeaderboard.profiles',
+    );
+    final list = validated.when(
+      success: (rows) => rows,
+      failure: (error) => throw error,
+    );
     return List.generate(list.length, (i) {
       return LeaderboardEntry.fromJson(list[i], rank: i + 1);
     });
@@ -95,9 +129,17 @@ class LeaderboardService {
         .select('user_id, xp_earned')
         .gte('date', startDate);
 
-    // Aggregate XP per user
+    // Validate and aggregate XP per user
+    final weeklyValidated = ResponseValidator.validateList(
+      response,
+      context: 'getWeeklyLeaderboard.stats',
+    );
+    final rows = weeklyValidated.when(
+      success: (r) => r,
+      failure: (error) => throw error,
+    );
     final xpMap = <String, int>{};
-    for (final row in (response as List)) {
+    for (final row in rows) {
       final uid = row['user_id'] as String;
       xpMap[uid] = (xpMap[uid] ?? 0) + (row['xp_earned'] as int? ?? 0);
     }
@@ -115,8 +157,16 @@ class LeaderboardService {
         .select('id, display_name, avatar_url, total_xp, level')
         .inFilter('id', topIds);
 
+    final profilesValidated = ResponseValidator.validateList(
+      profilesResponse,
+      context: 'getWeeklyLeaderboard.profiles',
+    );
+    final profiles = profilesValidated.when(
+      success: (r) => r,
+      failure: (error) => throw error,
+    );
     final profileMap = <String, Map<String, dynamic>>{};
-    for (final p in (profilesResponse as List)) {
+    for (final p in profiles) {
       profileMap[p['id'] as String] = p;
     }
 
@@ -205,9 +255,14 @@ class LeaderboardService {
         .eq('user_id', userId)
         .eq('status', 'accepted');
 
-    return (response as List)
-        .map((json) => FriendModel.fromJson(json))
-        .toList();
+    final validated = ResponseValidator.validateAndMapList(
+      response, FriendModel.fromJson,
+      context: 'getFriends',
+    );
+    return validated.when(
+      success: (list) => list,
+      failure: (error) => throw error,
+    );
   }
 
   /// Get pending friend requests (where user is the recipient).
@@ -218,12 +273,18 @@ class LeaderboardService {
         .eq('friend_id', userId)
         .eq('status', 'pending');
 
-    return (response as List).map((json) {
-      // Swap the profile data for display
-      final modified = Map<String, dynamic>.from(json);
-      modified['friend_profile'] = json['friend_profile'];
-      return FriendModel.fromJson(modified);
-    }).toList();
+    final validated = ResponseValidator.validateList(
+      response,
+      context: 'getPendingRequests',
+    );
+    return validated.when(
+      success: (rows) => rows.map((json) {
+        final modified = Map<String, dynamic>.from(json);
+        modified['friend_profile'] = json['friend_profile'];
+        return FriendModel.fromJson(modified);
+      }).toList(),
+      failure: (error) => throw error,
+    );
   }
 
   /// Search for users by display name (for adding friends).
@@ -235,6 +296,13 @@ class LeaderboardService {
         .ilike('display_name', '%$query%')
         .neq('id', currentUserId)
         .limit(20);
-    return List<Map<String, dynamic>>.from(response);
+    final validated = ResponseValidator.validateList(
+      response,
+      context: 'searchUsers',
+    );
+    return validated.when(
+      success: (rows) => rows,
+      failure: (error) => throw error,
+    );
   }
 }

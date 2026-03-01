@@ -6,6 +6,7 @@ import '../../constants/app_theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/leaderboard_provider.dart';
 import '../../models/leaderboard_entry.dart';
+import '../../utils/debouncer.dart';
 
 class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({super.key});
@@ -17,6 +18,7 @@ class LeaderboardScreen extends StatefulWidget {
 class _LeaderboardScreenState extends State<LeaderboardScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final _friendRequestDebouncer = Debouncer(delay: const Duration(seconds: 1));
 
   @override
   void initState() {
@@ -42,6 +44,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
   @override
   void dispose() {
     _tabController.dispose();
+    _friendRequestDebouncer.dispose();
     super.dispose();
   }
 
@@ -534,6 +537,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
                                 icon: const Icon(Icons.person_add,
                                     color: AppColors.primary,),
                                 onPressed: () async {
+                                  if (!_friendRequestDebouncer.runImmediate(() {})) return;
                                   final success = await ctx
                                       .read<LeaderboardProvider>()
                                       .sendFriendRequest(

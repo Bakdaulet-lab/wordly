@@ -1,10 +1,11 @@
-import 'package:flutter/foundation.dart';
 import '../models/word_model.dart';
 import '../services/word_service.dart';
 import '../services/favorites_service.dart';
 import '../services/offline_cache_service.dart';
+import '../services/logger_service.dart';
 import '../di/service_locator.dart';
 import '../utils/api_guard.dart';
+import '../utils/performance_monitor.dart';
 import '../utils/result.dart';
 import '../utils/retry.dart';
 
@@ -19,21 +20,23 @@ class WordRepository {
 
   /// Fetch all words — falls back to offline cache on network failure.
   Future<Result<List<WordModel>>> fetchAllWords() async {
-    final result = await apiGuardWithRetry(() => _wordService.fetchAllWords());
+    final result = await apiGuardWithRetry(
+      () => PerformanceMonitor.measure('WordRepo.fetchAllWords', () => _wordService.fetchAllWords()),
+    );
     return result.when(
       success: (words) async {
         // Cache for offline use (non-critical, do not propagate errors)
         try {
           await _cache.cacheWords(words);
         } catch (e) {
-          debugPrint('[WordRepo] Cache failed (non-fatal): $e');
+          AppLogger.warning('Cache failed (non-fatal): $e', tag: 'WordRepo');
         }
         return Result.success(words);
       },
       failure: (error) async {
         if (error.type == AppExceptionType.network ||
             error.type == AppExceptionType.timeout) {
-          debugPrint('[WordRepo] Falling back to offline cache');
+          AppLogger.info('Falling back to offline cache', tag: 'WordRepo');
           final cached = await _cache.getCachedWords();
           if (cached.isNotEmpty) return Result.success(cached);
         }
@@ -48,13 +51,13 @@ class WordRepository {
     required int offset,
   }) async {
     final result = await apiGuardWithRetry(
-        () => _wordService.fetchWords(limit: limit, offset: offset),);
+        () => PerformanceMonitor.measure('WordRepo.fetchWords', () => _wordService.fetchWords(limit: limit, offset: offset)),);
     return result.when(
       success: (words) async {
         try {
           await _cache.cacheWords(words);
         } catch (e) {
-          debugPrint('[WordRepo] Cache failed (non-fatal): $e');
+          AppLogger.warning('Cache failed (non-fatal): $e', tag: 'WordRepo', error: e);
         }
         return Result.success(words);
       },
@@ -73,7 +76,7 @@ class WordRepository {
   /// Fetch by category — falls back to offline cache.
   Future<Result<List<WordModel>>> fetchByCategory(String category) async {
     final result =
-        await apiGuardWithRetry(() => _wordService.fetchByCategory(category));
+        await apiGuardWithRetry(() => PerformanceMonitor.measure('WordRepo.fetchByCategory', () => _wordService.fetchByCategory(category)));
     return result.when(
       success: (words) => Result.success(words),
       failure: (error) async {
@@ -90,7 +93,7 @@ class WordRepository {
   /// Search words — falls back to offline cache.
   Future<Result<List<WordModel>>> searchWords(String query) async {
     final result =
-        await apiGuardWithRetry(() => _wordService.searchWords(query));
+        await apiGuardWithRetry(() => PerformanceMonitor.measure('WordRepo.searchWords', () => _wordService.searchWords(query)));
     return result.when(
       success: (words) => Result.success(words),
       failure: (error) async {
@@ -107,7 +110,7 @@ class WordRepository {
   /// Fetch categories — falls back to offline cache.
   Future<Result<List<String>>> fetchCategories() async {
     final result =
-        await apiGuardWithRetry(() => _wordService.fetchCategories());
+        await apiGuardWithRetry(() => PerformanceMonitor.measure('WordRepo.fetchCategories', () => _wordService.fetchCategories()));
     return result.when(
       success: (cats) => Result.success(cats),
       failure: (error) async {

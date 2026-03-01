@@ -1,12 +1,13 @@
-import 'package:flutter/foundation.dart';
 import '../models/user_word_progress_model.dart';
 import '../services/progress_service.dart';
 import '../services/xp_service.dart';
 import '../services/stats_service.dart';
 import '../services/offline_cache_service.dart';
+import '../services/logger_service.dart';
 import '../di/service_locator.dart';
 import '../constants/app_constants.dart';
 import '../utils/api_guard.dart';
+import '../utils/performance_monitor.dart';
 import '../utils/result.dart';
 import '../utils/retry.dart';
 import '../utils/sm2_algorithm.dart';
@@ -26,13 +27,13 @@ class ProgressRepository {
   Future<Result<List<Map<String, dynamic>>>> getWordsForReview(
       String userId, {int limit = 20,}) async {
     final result = await apiGuardWithRetry(
-        () => _progressService.getWordsForReview(userId, limit: limit),);
+        () => PerformanceMonitor.measure('ProgressRepo.getWordsForReview', () => _progressService.getWordsForReview(userId, limit: limit)),);
     return result.when(
       success: (items) => Result.success(items),
       failure: (error) async {
         if (error.type == AppExceptionType.network ||
             error.type == AppExceptionType.timeout) {
-          debugPrint('[ProgressRepo] Falling back to cached due words');
+          AppLogger.info('Falling back to cached due words', tag: 'ProgressRepo');
           final cached = await _cache.getCachedDueWords(userId);
           return Result.success(cached);
         }
@@ -45,7 +46,7 @@ class ProgressRepository {
   Future<Result<UserWordProgressModel?>> getProgress(
       String userId, int wordId,) async {
     final result = await apiGuardWithRetry(
-        () => _progressService.getProgress(userId, wordId),);
+        () => PerformanceMonitor.measure('ProgressRepo.getProgress', () => _progressService.getProgress(userId, wordId)),);
     return result.when(
       success: (data) => Result.success(data),
       failure: (error) async {
@@ -62,7 +63,7 @@ class ProgressRepository {
   /// Count due words, with offline fallback.
   Future<Result<int>> countDueWords(String userId) async {
     final result = await apiGuardWithRetry(
-        () => _progressService.countDueWords(userId),);
+        () => PerformanceMonitor.measure('ProgressRepo.countDueWords', () => _progressService.countDueWords(userId)),);
     return result.when(
       success: (count) => Result.success(count),
       failure: (error) async {
@@ -92,7 +93,7 @@ class ProgressRepository {
 
     if (!_cache.isOnline) {
       // Offline: compute SM-2 locally and queue for sync
-      debugPrint('[ProgressRepo] Offline — queuing review for word $wordId');
+      AppLogger.info('Offline — queuing review for word $wordId', tag: 'ProgressRepo');
       final existing = await _cache.getCachedProgress(userId, wordId);
       final sm2 = calculateSM2(
         quality: quality,

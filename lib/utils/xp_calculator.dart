@@ -14,7 +14,7 @@ class XpCalculator {
 
   /// Returns the level for a given total XP amount.
   static int levelFromXp(int totalXp) {
-    final thresholds = AppConstants.levelThresholds;
+    const thresholds = AppConstants.levelThresholds;
     for (int i = thresholds.length - 1; i >= 0; i--) {
       if (totalXp >= thresholds[i]) {
         return i + 1; // Levels are 1-indexed
@@ -26,14 +26,14 @@ class XpCalculator {
   /// Returns total XP needed to reach the next level.
   /// Returns null if already at max level.
   static int? xpForNextLevel(int currentLevel) {
-    final thresholds = AppConstants.levelThresholds;
+    const thresholds = AppConstants.levelThresholds;
     if (currentLevel >= thresholds.length) return null;
     return thresholds[currentLevel]; // currentLevel is 1-indexed, so index = currentLevel for next
   }
 
   /// Returns XP progress within the current level (0.0 to 1.0).
   static double xpProgressInLevel(int totalXp) {
-    final thresholds = AppConstants.levelThresholds;
+    const thresholds = AppConstants.levelThresholds;
     final level = levelFromXp(totalXp);
 
     if (level >= thresholds.length) return 1.0; // Max level

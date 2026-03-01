@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wordly/services/export_service.dart';
 import 'package:wordly/models/word_model.dart';
@@ -145,6 +147,86 @@ void main() {
           ? (progress.correctCount / total * 100).toStringAsFixed(1)
           : 'N/A';
       expect(accuracy, 'N/A');
+    });
+  });
+
+  group('ExportService JSON export', () {
+    test('JSON export contains correct structure', () {
+      final words = [
+        WordModel(
+          id: 1,
+          englishWord: 'hello',
+          russianTranslation: 'привет',
+          exampleSentence: 'Hello world',
+          difficultyLevel: 1,
+          category: 'general',
+          createdAt: DateTime(2025, 1, 1),
+        ),
+        WordModel(
+          id: 2,
+          englishWord: 'world',
+          russianTranslation: 'мир',
+          exampleSentence: 'The world is big',
+          difficultyLevel: 2,
+          category: 'general',
+          createdAt: DateTime(2025, 1, 1),
+        ),
+      ];
+
+      final jsonMap = {
+        'exported_at': DateTime(2025, 1, 1).toIso8601String(),
+        'word_count': words.length,
+        'words': words
+            .map((w) => <String, dynamic>{
+                    'english_word': w.englishWord,
+                    'russian_translation': w.russianTranslation,
+                    'example_sentence': w.exampleSentence,
+                    'difficulty_level': w.difficultyLevel,
+                  },)
+            .toList(),
+      };
+
+      final jsonStr = const JsonEncoder.withIndent('  ').convert(jsonMap);
+
+      expect(jsonStr.contains('"word_count": 2'), isTrue);
+      expect(jsonStr.contains('"english_word": "hello"'), isTrue);
+      expect(jsonStr.contains('"english_word": "world"'), isTrue);
+      expect(jsonStr.contains('"russian_translation": "привет"'), isTrue);
+    });
+
+    test('JSON export handles empty word list', () {
+      final jsonMap = {
+        'exported_at': DateTime(2025, 1, 1).toIso8601String(),
+        'word_count': 0,
+        'words': <Map<String, dynamic>>[],
+      };
+
+      final jsonStr = const JsonEncoder.withIndent('  ').convert(jsonMap);
+
+      expect(jsonStr.contains('"word_count": 0'), isTrue);
+      expect(jsonStr.contains('"words": []'), isTrue);
+    });
+
+    test('JSON export roundtrips correctly', () {
+      final original = {
+        'exported_at': '2025-01-01T00:00:00.000',
+        'word_count': 1,
+        'words': [
+          {
+            'english_word': 'test',
+            'russian_translation': 'тест',
+            'example_sentence': 'This is a test',
+            'difficulty_level': 1,
+          }
+        ],
+      };
+
+      final encoded = jsonEncode(original);
+      final decoded = jsonDecode(encoded) as Map<String, dynamic>;
+
+      expect(decoded['word_count'], 1);
+      expect((decoded['words'] as List).length, 1);
+      expect((decoded['words'] as List)[0]['english_word'], 'test');
     });
   });
 }

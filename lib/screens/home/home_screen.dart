@@ -13,6 +13,7 @@ import '../../providers/progress_provider.dart';
 import '../../providers/achievement_provider.dart';
 import '../../providers/quiz_provider.dart';
 import '../../providers/connectivity_provider.dart';
+import '../../providers/theme_provider.dart';
 import '../../services/sync_service.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../words/word_list_screen.dart';
@@ -59,6 +60,28 @@ class _HomeScreenState extends State<HomeScreen> {
     ]);
   }
 
+  /// Start a quick 5-question quiz immediately without settings selection.
+  void _startQuickQuiz() {
+    final allWords = context.read<WordListProvider>().allWords;
+    if (allWords.length < 4) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Not enough words loaded for a quiz.'),
+          backgroundColor: AppColors.streakOrange,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+      return;
+    }
+    final quizProvider = context.read<QuizProvider>();
+    // Pick 5 random words for a quick quiz
+    final shuffled = List.of(allWords)..shuffle();
+    final quickWords = shuffled.take(5).toList();
+    quizProvider.startQuizWithWords(quickWords, allWords);
+    context.go('/quiz');
+  }
+
   @override
   Widget build(BuildContext context) {
     final screens = [
@@ -76,6 +99,18 @@ class _HomeScreenState extends State<HomeScreen> {
         index: _currentIndex,
         children: screens,
       ),
+      floatingActionButton: _currentIndex == 0
+          ? FloatingActionButton.extended(
+              onPressed: _startQuickQuiz,
+              backgroundColor: AppTheme.primary(context),
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.bolt_rounded),
+              label: const Text(
+                'Quick Quiz',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            )
+          : null,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) {
@@ -177,6 +212,54 @@ class _HomeScreenState extends State<HomeScreen> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 40),
+
+              // Quiz mode toggle
+              Consumer<ThemeProvider>(
+                builder: (context, themeProvider, _) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.surface(context),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppTheme.textHint(context).withValues(alpha: 0.2),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          themeProvider.isTypingQuiz
+                              ? Icons.keyboard_rounded
+                              : Icons.grid_view_rounded,
+                          color: AppTheme.primary(context),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          themeProvider.isTypingQuiz
+                              ? 'Typing Mode'
+                              : 'Multiple Choice',
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const Spacer(),
+                        Switch(
+                          value: themeProvider.isTypingQuiz,
+                          onChanged: (val) {
+                            themeProvider.setQuizMode(
+                              val ? QuizMode.typing : QuizMode.multipleChoice,
+                            );
+                          },
+                          activeColor: AppTheme.primary(context),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(

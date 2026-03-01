@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/logger_service.dart';
 import 'connectivity_service.dart';
 import 'local_database.dart';
 import '../models/word_model.dart';
@@ -49,7 +49,7 @@ class SyncService {
       await _pullAll();
       _statusController.add(SyncStatus.synced);
     } catch (e) {
-      debugPrint('[SyncService] Sync error: $e');
+      AppLogger.error('Sync error: $e', tag: 'SyncService', error: e);
       _statusController.add(SyncStatus.error);
     } finally {
       _isSyncing = false;
@@ -90,7 +90,7 @@ class SyncService {
 
         await _localDb.removeSyncItem(item['id'] as int);
       } catch (e) {
-        debugPrint('[SyncService] Push failed for item ${item['id']}: $e');
+        AppLogger.error('Push failed for item ${item['id']}: $e', tag: 'SyncService', error: e);
         final retryCount = item['retry_count'] as int? ?? 0;
         if (retryCount >= 5) {
           // Drop after 5 retries
@@ -133,7 +133,7 @@ class SyncService {
           .toList();
       await _localDb.upsertAll('words', rows);
     } catch (e) {
-      debugPrint('[SyncService] Pull words failed: $e');
+      AppLogger.error('Pull words failed: $e', tag: 'SyncService', error: e);
     }
   }
 
@@ -163,7 +163,7 @@ class SyncService {
         });
       }
     } catch (e) {
-      debugPrint('[SyncService] Pull profile failed: $e');
+      AppLogger.error('Pull profile failed: $e', tag: 'SyncService', error: e);
     }
   }
 
@@ -189,7 +189,7 @@ class SyncService {
           },).toList();
       await _localDb.upsertAll('user_word_progress', rows);
     } catch (e) {
-      debugPrint('[SyncService] Pull progress failed: $e');
+      AppLogger.error('Pull progress failed: $e', tag: 'SyncService', error: e);
     }
   }
 
@@ -212,7 +212,7 @@ class SyncService {
       }).toList();
       await _localDb.upsertAll('daily_stats', rows);
     } catch (e) {
-      debugPrint('[SyncService] Pull daily_stats failed: $e');
+      AppLogger.error('Pull daily_stats failed: $e', tag: 'SyncService', error: e);
     }
   }
 

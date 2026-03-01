@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import '../../constants/app_colors.dart';
 import '../../constants/app_text_styles.dart';
 import '../../constants/app_theme.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/profile_provider.dart';
+import '../../providers/progress_provider.dart';
+import '../../providers/stats_provider.dart';
 import '../../providers/word_list_provider.dart';
 import '../../di/service_locator.dart';
 import '../../services/export_service.dart';
+import '../../utils/debouncer.dart';
 import '../../utils/input_sanitizer.dart';
+import '../../widgets/confirm_dialog.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -19,27 +23,26 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  final _saveNameDebouncer = Debouncer(delay: const Duration(milliseconds: 600));
+  final _exportDebouncer = Debouncer(delay: const Duration(milliseconds: 600));
+
+  @override
+  void dispose() {
+    _saveNameDebouncer.dispose();
+    _exportDebouncer.dispose();
+    super.dispose();
+  }
+
   Future<void> _handleLogout() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Log Out'),
-        content: const Text('Are you sure you want to log out?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.errorRed,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Log Out'),
-          ),
-        ],
-      ),
+    final l = AppLocalizations.of(context);
+    final confirmed = await showConfirmDialog(
+      context,
+      title: l.translate('logOut'),
+      message: l.translate('logOutConfirm'),
+      confirmLabel: l.translate('logOut'),
+      cancelLabel: l.cancel,
+      isDestructive: true,
+      icon: Icons.logout_rounded,
     );
 
     if (confirmed != true || !mounted) return;
@@ -49,6 +52,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (mounted) {
       context.go('/login');
     }
+  }
+
+  Future<void> _handleResetProgress() async {
+    final l = AppLocalizations.of(context);
+    final confirmed = await showConfirmDialog(
+      context,
+      title: l.translate('resetProgress'),
+      message: l.translate('resetProgressConfirm'),
+      confirmLabel: l.translate('resetProgress'),
+      cancelLabel: l.cancel,
+      isDestructive: true,
+      icon: Icons.warning_rounded,
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final userId = context.read<AuthProvider>().user?.id;
+    if (userId == null) return;
+
+    final profileProvider = context.read<ProfileProvider>();
+    final success = await profileProvider.resetProgress(userId);
+
+    if (!mounted) return;
+
+    if (success) {
+      // Refresh related providers
+      context.read<StatsProvider>().refreshTodayStats(userId);
+      context.read<ProgressProvider>().refreshDueCount(userId);
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          success
+              ? l.translate('resetProgressSuccess')
+              : l.translate('resetProgressFailed'),
+        ),
+        backgroundColor:
+            success ? AppTheme.successGreen : AppTheme.errorRed,
+      ),
+    );
   }
 
   void _showEditNameDialog() {
@@ -83,6 +127,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 nameController.text,
               );
               if (newName.isEmpty || newName.length < 2) return;
+              if (!_saveNameDebouncer.runImmediate(() {})) return;
               Navigator.of(dialogContext).pop();
 
               final profileProvider = context.read<ProfileProvider>();
@@ -98,12 +143,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     success ? 'Name updated!' : 'Failed to update name.',
                   ),
                   backgroundColor:
-                      success ? AppColors.successGreen : AppColors.errorRed,
+                      success ? AppTheme.successGreen : Theme.of(context).colorScheme.error,
                 ),
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
+              backgroundColor: AppTheme.primary(context),
               foregroundColor: Colors.white,
             ),
             child: const Text('Save'),
@@ -114,6 +159,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _handleExport(BuildContext context) async {
+    if (!_exportDebouncer.runImmediate(() {})) return;
+
     final exportService = sl<ExportService>();
     final wordProvider = context.read<WordListProvider>();
 
@@ -124,7 +171,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Export failed. Sharing may not be available on this device.'),
-            backgroundColor: AppColors.errorRed,
+            backgroundColor: AppTheme.errorRed,
           ),
         );
       }
@@ -139,10 +186,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Consumer<ProfileProvider>(
           builder: (context, profileProvider, child) {
             if (profileProvider.isLoading) {
-              return const Center(
+              return Center(
                 child: Padding(
-                  padding: EdgeInsets.all(48),
-                  child: CircularProgressIndicator(color: AppColors.primary),
+                  padding: const EdgeInsets.all(48),
+                  child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary),
                 ),
               );
             }
@@ -152,16 +199,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.error_outline,
                       size: 64,
-                      color: AppColors.errorRed,
+                      color: Theme.of(context).colorScheme.error,
                     ),
                     const SizedBox(height: 16),
                     Text(
                       profileProvider.errorMessage!,
                       style: AppTextStyles.bodyMedium.copyWith(
-                        color: AppColors.errorRed,
+                        color: Theme.of(context).colorScheme.error,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -176,7 +223,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       icon: const Icon(Icons.refresh_rounded, size: 18),
                       label: const Text('Retry'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
+                        backgroundColor: Theme.of(context).colorScheme.primary,
                         foregroundColor: Colors.white,
                       ),
                     ),
@@ -267,7 +314,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           Expanded(
                             child: _buildStatItem(
                               icon: Icons.trending_up_rounded,
-                              iconColor: AppColors.primary,
+                              iconColor: Theme.of(context).colorScheme.primary,
                               label: 'Level',
                               value: '$level',
                             ),
@@ -280,7 +327,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           Expanded(
                             child: _buildStatItem(
                               icon: Icons.star_rounded,
-                              iconColor: AppColors.xpGold,
+                              iconColor: AppTheme.xpGold,
                               label: 'Total XP',
                               value: '$totalXp',
                             ),
@@ -298,7 +345,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           Expanded(
                             child: _buildStatItem(
                               icon: Icons.local_fire_department_rounded,
-                              iconColor: AppColors.streakOrange,
+                              iconColor: AppTheme.streakOrange,
                               label: 'Current Streak',
                               value:
                                   '$currentStreak day${currentStreak == 1 ? '' : 's'}',
@@ -312,7 +359,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           Expanded(
                             child: _buildStatItem(
                               icon: Icons.emoji_events_rounded,
-                              iconColor: AppColors.xpGold,
+                              iconColor: AppTheme.xpGold,
                               label: 'Longest Streak',
                               value:
                                   '$longestStreak day${longestStreak == 1 ? '' : 's'}',
@@ -343,9 +390,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.calendar_today_rounded,
-                          color: AppColors.primary,
+                          color: Theme.of(context).colorScheme.primary,
                           size: 20,
                         ),
                         const SizedBox(width: 12),
@@ -373,9 +420,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     icon: const Icon(Icons.file_download_outlined),
                     label: const Text('Export My Data'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.successGreen,
+                      foregroundColor: AppTheme.successGreen,
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      side: const BorderSide(color: AppColors.successGreen),
+                      side: const BorderSide(color: AppTheme.successGreen),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -403,6 +450,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 12),
 
+                // Reset progress button
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _handleResetProgress,
+                    icon: const Icon(Icons.restart_alt_rounded),
+                    label: Text(AppLocalizations.of(context).translate('resetProgress')),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.streakOrange,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      side: const BorderSide(color: AppTheme.streakOrange),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
                 // Log out button
                 SizedBox(
                   width: double.infinity,
@@ -411,7 +477,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       return ElevatedButton(
                         onPressed: auth.isLoading ? null : _handleLogout,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.errorRed,
+                          backgroundColor: Theme.of(context).colorScheme.error,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(

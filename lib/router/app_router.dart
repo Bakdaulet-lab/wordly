@@ -16,6 +16,7 @@ import '../screens/onboarding/onboarding_screen.dart';
 import '../screens/leaderboard/leaderboard_screen.dart';
 import '../screens/settings/settings_screen.dart';
 import '../screens/analytics/analytics_screen.dart';
+import '../screens/word_lifter/word_lifter_screen.dart';
 
 Page<void> _fadeTransition(GoRouterState state, Widget child) {
   return CustomTransitionPage(
@@ -154,6 +155,11 @@ GoRouter createRouter(BuildContext context, {required bool onboardingComplete}) 
         path: '/settings',
         pageBuilder: (context, state) =>
             _slideUpTransition(state, const SettingsScreen()),
+      ),
+      GoRoute(
+        path: '/word-lifter',
+        pageBuilder: (context, state) =>
+            _slideUpTransition(state, const WordLifterScreen()),
       ),
     ],
   );

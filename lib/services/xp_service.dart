@@ -1,5 +1,4 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../utils/xp_calculator.dart';
 import 'interfaces/i_xp_service.dart';
 
 /// Supabase data-access layer for awarding experience points.
@@ -8,25 +7,15 @@ class XpService implements IXpService {
 
   XpService(this._client);
 
-  /// Award XP to a user. Updates total_xp and recalculates level.
+  /// Award XP to a user atomically via Supabase RPC.
+  ///
+  /// Calls the `award_xp` stored procedure which performs the read-then-write
+  /// in a single transaction, avoiding race conditions from concurrent calls.
   @override
   Future<void> awardXp(String userId, int amount) async {
-    final response = await _client
-        .from('profiles')
-        .select('total_xp')
-        .eq('id', userId)
-        .limit(1);
-
-    final list = response as List;
-    if (list.isEmpty) return;
-
-    final currentXp = list.first['total_xp'] as int? ?? 0;
-    final newTotalXp = currentXp + amount;
-    final newLevel = XpCalculator.levelFromXp(newTotalXp);
-
-    await _client.from('profiles').update({
-      'total_xp': newTotalXp,
-      'level': newLevel,
-    }).eq('id', userId);
+    await _client.rpc('award_xp', params: {
+      'p_user_id': userId,
+      'p_amount': amount,
+    },);
   }
 }

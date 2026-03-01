@@ -5,7 +5,9 @@ import '../services/quiz_service.dart';
 import '../services/progress_service.dart';
 import '../services/xp_service.dart';
 import '../services/stats_service.dart';
+import '../services/logger_service.dart';
 import '../utils/api_guard.dart';
+import '../utils/performance_monitor.dart';
 import '../utils/result.dart';
 
 /// Repository that handles quiz generation and persisting quiz answers.
@@ -36,6 +38,54 @@ class QuizRepository {
     return _quizService.pickQuizWords(allWords, count: count);
   }
 
+  /// Fetch quiz words prioritizing those due for SM-2 review, then backfill
+  /// with random new words from [allWords] that haven't been reviewed.
+  Future<List<WordModel>> getQuizWords({
+    required String userId,
+    required List<WordModel> allWords,
+    int count = 10,
+  }) async {
+    final selected = <WordModel>[];
+    final selectedIds = <int>{};
+
+    // Step 1: Fetch words due for review (next_review_date <= now)
+    try {
+      final dueRows = await _progressService.getWordsForReview(
+        userId,
+        limit: count,
+      );
+      // Build a lookup from allWords for quick matching
+      final wordMap = {for (final w in allWords) w.id: w};
+      for (final row in dueRows) {
+        final wordData = row['words'];
+        if (wordData != null) {
+          final wordId = wordData['id'] as int?;
+          if (wordId != null && wordMap.containsKey(wordId) && !selectedIds.contains(wordId)) {
+            selected.add(wordMap[wordId]!);
+            selectedIds.add(wordId);
+          }
+        }
+        if (selected.length >= count) break;
+      }
+    } catch (e) {
+      AppLogger.error('Failed to fetch due words: $e', tag: 'QuizRepository', error: e);
+    }
+
+    // Step 2: Backfill with random words that are not already selected
+    if (selected.length < count) {
+      final remaining = allWords
+          .where((w) => !selectedIds.contains(w.id))
+          .toList();
+      final backfill = _quizService.pickQuizWords(
+        remaining,
+        count: count - selected.length,
+      );
+      selected.addAll(backfill);
+    }
+
+    return selected;
+  }
+
   /// Submit a quiz answer — persists progress, awards XP, increments stats.
   Future<Result<void>> submitAnswer({
     required String userId,
@@ -49,7 +99,7 @@ class QuizRepository {
         : AppConstants.xpIncorrectAnswer;
     final statField = isCorrect ? 'correct_answers' : 'incorrect_answers';
 
-    return apiGuard(() => Future.wait([
+    return apiGuard(() => PerformanceMonitor.measure('QuizRepo.submitAnswer', () => Future.wait([
           _xpService.awardXp(userId, xp),
           _statsService.incrementStat(userId, statField, 1),
           _progressService.updateProgress(
@@ -57,7 +107,7 @@ class QuizRepository {
             wordId: wordId,
             quality: quality,
           ),
-        ]),);
+        ]),),);
   }
 
   /// Finish quiz — awards bonus XP and logs aggregate stats.
@@ -67,7 +117,7 @@ class QuizRepository {
     required int totalQuestions,
     required int totalXpEarned,
   }) {
-    return apiGuard(() async {
+    return apiGuard(() => PerformanceMonitor.measure('QuizRepo.finishQuiz', () async {
       final futures = <Future>[];
 
       int xpToLog = totalXpEarned;
@@ -83,6 +133,6 @@ class QuizRepository {
       futures.add(_statsService.incrementStat(userId, 'xp_earned', xpToLog));
 
       await Future.wait(futures);
-    });
+    }),);
   }
 }

@@ -7,9 +7,11 @@
 library;
 export 'achievement_provider.dart';
 export 'analytics_provider.dart';
+export 'base_provider.dart';
 export 'auth_provider.dart';
 export 'connectivity_provider.dart';
 export 'leaderboard_provider.dart';
+export 'locale_provider.dart';
 export 'notification_provider.dart';
 export 'profile_provider.dart';
 export 'progress_provider.dart';

@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import '../services/logger_service.dart';
 import '../models/word_model.dart';
 import '../models/user_word_progress_model.dart';
 import '../models/daily_stats_model.dart';
@@ -191,7 +191,7 @@ class OfflineCacheService {
       operation: 'upsert',
       payload: jsonEncode({...data, 'user_id': userId, 'word_id': wordId}),
     );
-    debugPrint('[OfflineCache] Queued progress update for word $wordId');
+    AppLogger.debug('Queued progress update for word $wordId', tag: 'OfflineCache');
   }
 
   // ── Daily stats cache ──────────────────────────────────────────────

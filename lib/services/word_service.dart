@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/word_model.dart';
+import '../utils/response_validator.dart';
 import 'interfaces/i_word_service.dart';
 
 /// Supabase data-access layer for the word catalogue.
@@ -14,9 +15,14 @@ class WordService implements IWordService {
         .from('words')
         .select()
         .order('english_word', ascending: true);
-    return (response as List)
-        .map((json) => WordModel.fromJson(json))
-        .toList();
+    final validated = ResponseValidator.validateAndMapList(
+      response, WordModel.fromJson,
+      context: 'fetchAllWords',
+    );
+    return validated.when(
+      success: (words) => words,
+      failure: (error) => throw error,
+    );
   }
 
   /// Fetch a page of words with limit/offset for pagination.
@@ -27,9 +33,14 @@ class WordService implements IWordService {
         .select()
         .order('id', ascending: true)
         .range(offset, offset + limit - 1);
-    return (response as List)
-        .map((json) => WordModel.fromJson(json))
-        .toList();
+    final validated = ResponseValidator.validateAndMapList(
+      response, WordModel.fromJson,
+      context: 'fetchWords',
+    );
+    return validated.when(
+      success: (words) => words,
+      failure: (error) => throw error,
+    );
   }
 
   @override
@@ -39,9 +50,14 @@ class WordService implements IWordService {
         .select()
         .eq('category', category)
         .order('english_word', ascending: true);
-    return (response as List)
-        .map((json) => WordModel.fromJson(json))
-        .toList();
+    final validated = ResponseValidator.validateAndMapList(
+      response, WordModel.fromJson,
+      context: 'fetchByCategory',
+    );
+    return validated.when(
+      success: (words) => words,
+      failure: (error) => throw error,
+    );
   }
 
   @override
@@ -52,9 +68,14 @@ class WordService implements IWordService {
         .ilike('english_word', '%$query%')
         .order('english_word', ascending: true)
         .limit(50);
-    return (response as List)
-        .map((json) => WordModel.fromJson(json))
-        .toList();
+    final validated = ResponseValidator.validateAndMapList(
+      response, WordModel.fromJson,
+      context: 'searchWords',
+    );
+    return validated.when(
+      success: (words) => words,
+      failure: (error) => throw error,
+    );
   }
 
   @override
@@ -63,10 +84,18 @@ class WordService implements IWordService {
         .from('words')
         .select('category')
         .order('category', ascending: true);
-    final categories = (response as List)
-        .map((json) => json['category'] as String)
-        .toSet()
-        .toList();
-    return categories;
+    final validated = ResponseValidator.validateList(
+      response,
+      context: 'fetchCategories',
+    );
+    return validated.when(
+      success: (rows) {
+        return rows
+            .map((json) => json['category'] as String)
+            .toSet()
+            .toList();
+      },
+      failure: (error) => throw error,
+    );
   }
 }

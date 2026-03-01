@@ -1,25 +1,22 @@
-import 'package:flutter/material.dart';
 import '../models/daily_stats_model.dart';
 import '../di/service_locator.dart';
 import '../repositories/stats_repository.dart';
 import '../services/daily_goal_service.dart';
+import '../services/logger_service.dart';
+import 'base_provider.dart';
 
 /// Exposes daily statistics, streaks, and goal progress to the UI.
-class StatsProvider extends ChangeNotifier {
+class StatsProvider extends BaseProvider {
   final StatsRepository _statsRepo = sl<StatsRepository>();
 
   DailyStatsModel? _todayStats;
   List<DailyStatsModel> _recentStats = [];
   int _currentStreak = 0;
-  bool _isLoading = false;
-  String? _errorMessage;
   int _dailyXpGoal = DailyGoalService.defaultGoal;
 
   DailyStatsModel? get todayStats => _todayStats;
   List<DailyStatsModel> get recentStats => _recentStats;
   int get currentStreak => _currentStreak;
-  bool get isLoading => _isLoading;
-  String? get errorMessage => _errorMessage;
   int get dailyXpGoal => _dailyXpGoal;
 
   double get dailyGoalProgress {
@@ -42,15 +39,14 @@ class StatsProvider extends ChangeNotifier {
   }
 
   Future<void> loadStats(String userId) async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
+    setLoading(true);
+    clearError();
 
     // Update streak
     final streakResult = await _statsRepo.updateStreak(userId);
     streakResult.when(
       success: (streak) => _currentStreak = streak,
-      failure: (error) => debugPrint('updateStreak failed: ${error.userMessage}'),
+      failure: (error) => AppLogger.warning('updateStreak failed: ${error.userMessage}', tag: 'StatsProvider'),
     );
 
     // Load today's stats and daily goal in parallel
@@ -58,12 +54,12 @@ class StatsProvider extends ChangeNotifier {
     final goalResult = await _statsRepo.getGoal();
     goalResult.when(
       success: (goal) => _dailyXpGoal = goal,
-      failure: (error) => debugPrint('getGoal failed: ${error.userMessage}'),
+      failure: (error) => AppLogger.warning('getGoal failed: ${error.userMessage}', tag: 'StatsProvider'),
     );
 
     todayResult.when(
       success: (stats) => _todayStats = stats,
-      failure: (error) => _errorMessage = error.userMessage,
+      failure: (error) => setError(error.userMessage, notify: false),
     );
 
     // Load last 30 days
@@ -73,11 +69,12 @@ class StatsProvider extends ChangeNotifier {
         await _statsRepo.getStatsForRange(userId, thirtyDaysAgo, now);
     rangeResult.when(
       success: (stats) => _recentStats = stats,
-      failure: (error) => _errorMessage ??= error.userMessage,
+      failure: (error) {
+        if (errorMessage == null) setError(error.userMessage, notify: false);
+      },
     );
 
-    _isLoading = false;
-    notifyListeners();
+    setLoading(false);
   }
 
   Future<void> refreshTodayStats(String userId) async {
@@ -96,7 +93,7 @@ class StatsProvider extends ChangeNotifier {
     final result = await _statsRepo.setGoal(goal);
     result.when(
       success: (_) {},
-      failure: (error) => debugPrint('setDailyGoal failed: ${error.userMessage}'),
+      failure: (error) => AppLogger.warning('setDailyGoal failed: ${error.userMessage}', tag: 'StatsProvider'),
     );
     notifyListeners();
   }
